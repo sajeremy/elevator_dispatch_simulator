@@ -15,6 +15,7 @@ from dataclasses import dataclass
 from elevator_sim import registry
 from elevator_sim.config import SimulationConfig
 from elevator_sim.dispatch.base import Dispatcher
+from elevator_sim.elevator_requests import RequestSource
 from elevator_sim.models import (
     Action,
     ActionKind,
@@ -25,7 +26,6 @@ from elevator_sim.models import (
 )
 from elevator_sim.movement.base import MovementPolicy
 from elevator_sim.recorder import PositionRecorder
-from elevator_sim.requests import RequestSource
 
 
 @dataclass(slots=True)

@@ -4,9 +4,9 @@ from typing import Annotated
 import typer
 
 from elevator_sim.config import DispatchStrategy, SimulationConfig
+from elevator_sim.elevator_requests import load_requests_csv
 from elevator_sim.metrics import compute_metrics
 from elevator_sim.report import format_report
-from elevator_sim.requests import load_requests_csv
 from elevator_sim.simulation import run_simulation
 
 # Relative to the working directory (the repo root when run as documented).

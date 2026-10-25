@@ -1,8 +1,8 @@
 import pytest
 from pydantic import ValidationError
 
+from elevator_sim.elevator_requests import RequestSource, load_requests_csv
 from elevator_sim.models import ElevatorRequest
-from elevator_sim.requests import RequestSource, load_requests_csv
 
 
 def req(time: int, pid: str, source: int, dest: int) -> ElevatorRequest:

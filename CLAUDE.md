@@ -23,12 +23,12 @@ Conventions:
 | 5 Configuration | `config.py`, `registry.py` | `SimulationConfig` (frozen, validated); registry maps enums → strategy classes |
 | 4 Core | `simulation.py` | Tick loop; single entry point `run_simulation(requests, config)`; only code that mutates state |
 | 3 Strategies | `dispatch/`, `movement/` | Pluggable. Dispatcher = which car; MovementPolicy = where next |
-| 2 I/O | `requests.py`, `workloads.py`, `recorder.py`, `metrics.py`, `report.py` | Input loading + no-peek source, seeded workloads, positions log, stats |
+| 2 I/O | `elevator_requests.py`, `workloads.py`, `recorder.py`, `metrics.py`, `report.py` | Input loading + no-peek source, seeded workloads, positions log, stats |
 | 1 Models | `models.py` | `ElevatorRequest`, `Passenger`, `Elevator`, `ElevatorView`, `Direction`, `Action` |
 
 Boundaries:
 - Core imports strategy interfaces only; concrete classes are wired in `registry.py`. The core resolves `config.dispatch` through `registry.make_dispatcher` and never names a concrete class. `run_simulation` also takes optional `dispatcher=` / `movement=` instances, used by benchmarks such as `dispatch/fixed.py`.
-- Code lives in the `elevator_sim/` package (so `requests.py` can't shadow the `requests` library); tests in `tests/`.
+- Code lives in the `elevator_sim/` package; tests in `tests/`. Imports are absolute, from the module that defines the name.
 - Strategies receive read-only `ElevatorView` snapshots. Only the simulation moves cars or boards passengers (a strategy's own internal counter, such as round robin's turn, is fine).
 - Recorder and metrics observe; they never change state.
 - CLI runs, experiments and benchmarks all go through `run_simulation`, so every comparison uses the same physics and tick order.
@@ -105,7 +105,7 @@ Movement stays LOOK for every dispatcher comparison. SCAN is comparison-only.
 
 ## Key tests
 
-`test_request_source.py` (no-peek), `test_look.py`, `test_capacity.py`, `test_wait_bound.py`, `test_metrics.py` (hand-computed sample input).
+`test_elevator_requests.py` (no-peek), `test_look.py`, `test_capacity.py`, `test_wait_bound.py`, `test_metrics.py` (hand-computed sample input).
 
 ## Workloads
 
