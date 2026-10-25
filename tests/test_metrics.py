@@ -11,7 +11,6 @@ import pytest
 from elevator_sim.config import SimulationConfig
 from elevator_sim.metrics import compute_metrics, summarize
 from elevator_sim.simulation import run_simulation
-
 from tests.helpers import SAMPLE
 
 

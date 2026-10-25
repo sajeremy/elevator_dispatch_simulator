@@ -1,6 +1,5 @@
 from elevator_sim.config import SimulationConfig
 from elevator_sim.simulation import run_simulation
-
 from tests.helpers import requests
 
 
