@@ -15,7 +15,7 @@ class SimulationConfig(BaseModel):
 
     num_floors: int = Field(
         default=60,
-        ge=1,
+        ge=2,  # a valid request needs two distinct floors
         description="Number of floors; floors are numbered 1..num_floors.",
     )
     num_elevators: int = Field(

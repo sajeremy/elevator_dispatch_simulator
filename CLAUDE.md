@@ -63,7 +63,7 @@ class DispatchStrategy(StrEnum):
 
 class SimulationConfig(BaseModel):  # frozen
     """Floors are 1-indexed: floor 1 is the lobby."""
-    num_floors: int = 60            # >= 1
+    num_floors: int = 60            # >= 2 (a request needs two distinct floors)
     num_elevators: int = 4          # >= 1
     capacity: int = 12              # >= 1
     start_floor: int = 1            # where every car starts; 1 <= start_floor <= num_floors
