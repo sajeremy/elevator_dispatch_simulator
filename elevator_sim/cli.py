@@ -23,7 +23,7 @@ app = typer.Typer(add_completion=False, help="Run an elevator dispatch simulatio
 def run(
     requests: Annotated[
         Path,
-        typer.Argument(
+        typer.Option(
             envvar="ELEVATOR_REQUESTS_CSV",
             exists=True,
             dir_okay=False,

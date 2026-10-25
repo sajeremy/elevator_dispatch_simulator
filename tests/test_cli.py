@@ -11,7 +11,9 @@ def test_default_path_points_at_the_sample_input():
 
 def test_runs_and_writes_positions_log(tmp_path):
     log = tmp_path / "positions.csv"
-    result = runner.invoke(app, [str(DEFAULT_REQUESTS_PATH), "--positions-log", str(log)])
+    result = runner.invoke(
+        app, ["--requests", str(DEFAULT_REQUESTS_PATH), "--positions-log", str(log)]
+    )
     assert result.exit_code == 0, result.output
     assert "3/3 delivered in 52 ticks" in result.output
     assert log.read_text().startswith("time,e0,e1,e2,e3\n")
