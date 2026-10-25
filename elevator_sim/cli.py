@@ -1,5 +1,7 @@
-import argparse
 from pathlib import Path
+from typing import Annotated
+
+import typer
 
 from elevator_sim.config import DispatchStrategy, SimulationConfig
 from elevator_sim.metrics import compute_metrics
@@ -7,49 +9,54 @@ from elevator_sim.report import format_report
 from elevator_sim.requests import load_requests_csv
 from elevator_sim.simulation import run_simulation
 
-DEFAULT_REQUESTS = Path(__file__).resolve().parent.parent / "data" / "sample_requests.csv"
+# Relative to the working directory (the repo root when run as documented).
+# Override with the argument or the ELEVATOR_REQUESTS_CSV environment variable.
+DEFAULT_REQUESTS_PATH = Path("data/sample_requests.csv")
+
+_DEFAULTS = SimulationConfig()
+
+app = typer.Typer(add_completion=False, help="Run an elevator dispatch simulation.")
 
 
-def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
-    defaults = SimulationConfig()
-    p = argparse.ArgumentParser(description="Run an elevator dispatch simulation.")
-    p.add_argument(
-        "requests",
-        nargs="?",
-        default=DEFAULT_REQUESTS,
-        type=Path,
-        help="CSV with header time,id,source,dest (default: the sample input)",
-    )
-    p.add_argument("--floors", type=int, default=defaults.num_floors)
-    p.add_argument("--elevators", type=int, default=defaults.num_elevators)
-    p.add_argument("--capacity", type=int, default=defaults.capacity)
-    p.add_argument("--start-floor", type=int, default=defaults.start_floor)
-    p.add_argument("--stop-duration", type=int, default=defaults.stop_duration)
-    p.add_argument(
-        "--dispatch",
-        choices=[s.value for s in DispatchStrategy],
-        default=defaults.dispatch.value,
-    )
-    p.add_argument("--max-ticks", type=int, default=defaults.max_ticks)
-    p.add_argument("--positions-log", default=defaults.positions_log_path)
-    return p.parse_args(argv)
-
-
-def main(argv: list[str] | None = None) -> None:
-    args = parse_args(argv)
+@app.command()
+def run(
+    requests: Annotated[
+        Path,
+        typer.Argument(
+            envvar="ELEVATOR_REQUESTS_CSV",
+            exists=True,
+            dir_okay=False,
+            help="CSV with header time,id,source,dest.",
+        ),
+    ] = DEFAULT_REQUESTS_PATH,
+    floors: int = _DEFAULTS.num_floors,
+    elevators: int = _DEFAULTS.num_elevators,
+    capacity: int = _DEFAULTS.capacity,
+    start_floor: int = _DEFAULTS.start_floor,
+    stop_duration: int = _DEFAULTS.stop_duration,
+    dispatch: DispatchStrategy = _DEFAULTS.dispatch,
+    max_ticks: int = _DEFAULTS.max_ticks,
+    positions_log: Path = Path(_DEFAULTS.positions_log_path),
+) -> None:
     try:
         config = SimulationConfig(
-            num_floors=args.floors,
-            num_elevators=args.elevators,
-            capacity=args.capacity,
-            start_floor=args.start_floor,
-            stop_duration=args.stop_duration,
-            dispatch=DispatchStrategy(args.dispatch),
-            max_ticks=args.max_ticks,
-            positions_log_path=args.positions_log,
+            num_floors=floors,
+            num_elevators=elevators,
+            capacity=capacity,
+            start_floor=start_floor,
+            stop_duration=stop_duration,
+            dispatch=dispatch,
+            max_ticks=max_ticks,
+            positions_log_path=str(positions_log),
         )
-        result = run_simulation(load_requests_csv(args.requests), config)
+        result = run_simulation(load_requests_csv(requests), config)
     except ValueError as e:
-        raise SystemExit(f"error: {e}") from e
-    print(format_report(compute_metrics(result)))
-    print(f"\nPositions log: {config.positions_log_path}")
+        typer.echo(f"error: {e}", err=True)
+        raise typer.Exit(code=1) from e
+
+    typer.echo(format_report(compute_metrics(result)))
+    typer.echo(f"\nPositions log: {config.positions_log_path}")
+
+
+def main() -> None:
+    app()
