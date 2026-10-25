@@ -1,4 +1,4 @@
-"""Request input: CSV loading and the no-peek source.
+"""Elevator request input: CSV loading and the no-peek source.
 
 `RequestSource.arrivals_at(t)` is the only way the simulation sees requests,
 so the scheduler can never observe a request before its time. Replacing the
@@ -11,14 +11,14 @@ from pathlib import Path
 
 from pydantic import ValidationError
 
-from elevator_sim.models import Request
+from elevator_sim.models import ElevatorRequest
 
 CSV_FIELDS = ("time", "id", "source", "dest")
 
 
-def load_requests_csv(path: str | Path) -> list[Request]:
+def load_requests_csv(path: str | Path) -> list[ElevatorRequest]:
     """Read `time,id,source,dest` rows. Errors name the offending line."""
-    requests: list[Request] = []
+    requests: list[ElevatorRequest] = []
     with open(path, newline="") as f:
         reader = csv.DictReader(f)
         if tuple(reader.fieldnames or ()) != CSV_FIELDS:
@@ -26,7 +26,7 @@ def load_requests_csv(path: str | Path) -> list[Request]:
         for row in reader:
             try:
                 requests.append(
-                    Request(
+                    ElevatorRequest(
                         time=row["time"],
                         passenger_id=row["id"],
                         source_floor=row["source"],
@@ -45,7 +45,7 @@ class RequestSource:
     requests sharing a tick keep their input order.
     """
 
-    def __init__(self, requests: Iterable[Request], num_floors: int) -> None:
+    def __init__(self, requests: Iterable[ElevatorRequest], num_floors: int) -> None:
         pending = sorted(requests, key=lambda r: r.time)  # stable
         seen: set[str] = set()
         for r in pending:
@@ -61,7 +61,7 @@ class RequestSource:
         self._next = 0
         self._last_t: int | None = None
 
-    def arrivals_at(self, t: int) -> list[Request]:
+    def arrivals_at(self, t: int) -> list[ElevatorRequest]:
         """Requests with time <= t not yet released. `t` must not go backwards."""
         if self._last_t is not None and t < self._last_t:
             raise ValueError(f"time went backwards: {t} after {self._last_t}")

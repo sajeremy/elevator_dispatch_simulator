@@ -24,7 +24,7 @@ Conventions:
 | 4 Core | `simulation.py` | Tick loop; single entry point `run_simulation(requests, config)`; only code that mutates state |
 | 3 Strategies | `dispatch/`, `movement/` | Pluggable. Dispatcher = which car; MovementPolicy = where next |
 | 2 I/O | `requests.py`, `workloads.py`, `recorder.py`, `metrics.py`, `report.py` | Input loading + no-peek source, seeded workloads, positions log, stats |
-| 1 Models | `models.py` | `Request`, `Passenger`, `Elevator`, `ElevatorView`, `Direction`, `Action` |
+| 1 Models | `models.py` | `ElevatorRequest`, `Passenger`, `Elevator`, `ElevatorView`, `Direction`, `Action` |
 
 Boundaries:
 - Core imports strategy interfaces only; concrete classes are wired in `registry.py`. The core resolves `config.dispatch` through `registry.make_dispatcher` and never names a concrete class. `run_simulation` also takes optional `dispatcher=` / `movement=` instances, used by benchmarks such as `dispatch/fixed.py`.
@@ -37,7 +37,7 @@ Interfaces:
 
 ```python
 class Dispatcher(Protocol):
-    def assign(self, request: Request, elevators: Sequence[ElevatorView], t: int) -> int: ...
+    def assign(self, request: ElevatorRequest, elevators: Sequence[ElevatorView], t: int) -> int: ...
 
 class MovementPolicy(Protocol):
     def next_action(self, elevator: ElevatorView) -> Action: ...  # UP | DOWN | STOP | IDLE
@@ -98,7 +98,7 @@ Movement stays LOOK for every dispatcher comparison. SCAN is comparison-only.
 1. **Capacity vs. immediate assignment:** physics boards up to capacity, in arrival order. Passengers left behind keep their assigned car and stay a pickup target, so the car comes back for them. Assignment stays permanent and nobody starves (each car's passenger set is finite and LOOK always returns to an outstanding target). Reserving capacity at assignment is rejected as too conservative, because riders alight along the route. ETA accounts for capacity by simulating the route; round robin ignores it. `test_wait_bound.py` uses enough capacity that cars never fill.
 2. **Direction rule at pickup:** at a stop, alight first, then LOOK sets the direction (continue if targets lie ahead, else reverse, else idle), then board waiting passengers whose direction matches. A car moving through floor f stops there for a drop-off, a same-direction pickup, or an opposite-direction pickup when f is the last target of the sweep (the turnaround).
 3. **Same-tick ties:** stable sort by time, keeping input-file order within a tick (not by id: `passenger10` sorts before `passenger2`). Elevator ties go to the lowest index. Boarding under limited capacity is FIFO by request time, then file order.
-4. **Input validation:** fail fast with an error naming the row for `source == dest`, floors outside `[1, num_floors]`, duplicate ids and negative times. Floor range is checked where the config is known (building the source), not in `Request`. Unsorted input is sorted by time; no-peek lives in `arrivals_at(t)`, not in file order. A stream could not sort, so it would need a late-arrival policy.
+4. **Input validation:** fail fast with an error naming the row for `source == dest`, floors outside `[1, num_floors]`, duplicate ids and negative times. Floor range is checked where the config is known (building the source), not in `ElevatorRequest`. Unsorted input is sorted by time; no-peek lives in `arrivals_at(t)`, not in file order. A stream could not sort, so it would need a late-arrival policy.
 5. **Cross-zone trips:** deferred until zone dispatch exists. If built, zones are a dispatch preference only (every car reaches every floor); assign by the non-lobby endpoint's zone; a trip spanning two zones falls back to ETA across all cars.
 6. **Stop cost:** a stop takes `stop_duration >= 1` ticks; a car never stops and moves in the same tick. Alighting and boarding at one floor share one stop.
 7. **Timestamps:** pickup = the tick the passenger boards; drop-off = the tick they alight. Positions are recorded after Apply. A request at tick t can board at tick t (Ingest runs first). Example, sample passenger1 with an idle car at floor 1: board at t=0 (wait 0), move t=1–50, alight at t=51 (travel 51).

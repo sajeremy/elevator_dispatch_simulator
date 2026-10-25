@@ -1,8 +1,8 @@
-from elevator_sim.models import Request
+from elevator_sim.models import ElevatorRequest
 
 
-def requests(*rows: tuple[int, str, int, int]) -> list[Request]:
-    return [Request.from_tuple(r) for r in rows]
+def requests(*rows: tuple[int, str, int, int]) -> list[ElevatorRequest]:
+    return [ElevatorRequest.from_tuple(r) for r in rows]
 
 
 SAMPLE = requests(

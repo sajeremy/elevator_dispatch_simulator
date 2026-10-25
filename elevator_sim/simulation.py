@@ -15,7 +15,14 @@ from dataclasses import dataclass
 from elevator_sim import registry
 from elevator_sim.config import SimulationConfig
 from elevator_sim.dispatch.base import Dispatcher
-from elevator_sim.models import Action, ActionKind, Direction, Elevator, Passenger, Request
+from elevator_sim.models import (
+    Action,
+    ActionKind,
+    Direction,
+    Elevator,
+    ElevatorRequest,
+    Passenger,
+)
 from elevator_sim.movement.base import MovementPolicy
 from elevator_sim.recorder import PositionRecorder
 from elevator_sim.requests import RequestSource
@@ -44,7 +51,7 @@ class SimulationResult:
 
 
 def run_simulation(
-    requests: Iterable[Request],
+    requests: Iterable[ElevatorRequest],
     config: SimulationConfig,
     *,
     dispatcher: Dispatcher | None = None,

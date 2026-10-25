@@ -7,16 +7,16 @@ import random
 import pytest
 
 from elevator_sim.config import SimulationConfig
-from elevator_sim.models import Request
+from elevator_sim.models import ElevatorRequest
 from elevator_sim.simulation import run_simulation
 
 
-def random_requests(seed: int, n: int, floors: int, horizon: int) -> list[Request]:
+def random_requests(seed: int, n: int, floors: int, horizon: int) -> list[ElevatorRequest]:
     rng = random.Random(seed)
     out = []
     for i in range(n):
         source, dest = rng.sample(range(1, floors + 1), 2)
-        out.append(Request.from_tuple((rng.randrange(horizon), f"p{i}", source, dest)))
+        out.append(ElevatorRequest.from_tuple((rng.randrange(horizon), f"p{i}", source, dest)))
     return out
 
 

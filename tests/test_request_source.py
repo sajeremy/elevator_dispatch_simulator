@@ -1,12 +1,12 @@
 import pytest
 from pydantic import ValidationError
 
-from elevator_sim.models import Request
+from elevator_sim.models import ElevatorRequest
 from elevator_sim.requests import RequestSource, load_requests_csv
 
 
-def req(time: int, pid: str, source: int, dest: int) -> Request:
-    return Request.from_tuple((time, pid, source, dest))
+def req(time: int, pid: str, source: int, dest: int) -> ElevatorRequest:
+    return ElevatorRequest.from_tuple((time, pid, source, dest))
 
 
 def test_never_releases_a_request_before_its_time():

@@ -4,7 +4,7 @@ import math
 from collections.abc import Sequence
 from dataclasses import dataclass
 
-from elevator_sim.models import Request
+from elevator_sim.models import ElevatorRequest
 from elevator_sim.simulation import SimulationResult
 
 
@@ -31,7 +31,7 @@ def summarize(values: Sequence[float]) -> Distribution | None:
     )
 
 
-def ideal_total(request: Request, stop_duration: int) -> int:
+def ideal_total(request: ElevatorRequest, stop_duration: int) -> int:
     """Level 1 bound: a private car already waiting at the origin.
 
     Boarding happens on the request tick, so the passenger is charged only

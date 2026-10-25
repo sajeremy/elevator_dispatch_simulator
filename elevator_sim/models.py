@@ -1,6 +1,6 @@
 """Data types shared by every layer.
 
-`Request` is validated input (pydantic). `Passenger` and `Elevator` are the
+`ElevatorRequest` is validated input (pydantic). `Passenger` and `Elevator` are the
 mutable simulation state; only `simulation.py` changes them. Strategies see
 `ElevatorView`, a frozen snapshot.
 """
@@ -20,7 +20,7 @@ class Direction(IntEnum):
     UP = 1
 
 
-class Request(BaseModel):
+class ElevatorRequest(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     time: int = Field(ge=0, description="Time step at which the request is made.")
@@ -48,8 +48,8 @@ class Request(BaseModel):
         return abs(self.destination_floor - self.source_floor)
 
     @classmethod
-    def from_tuple(cls, raw: tuple[int, str, int, int]) -> Request:
-        """Build a Request from a (time, passenger_id, source_floor, destination_floor) tuple."""
+    def from_tuple(cls, raw: tuple[int, str, int, int]) -> ElevatorRequest:
+        """Build an ElevatorRequest from a (time, passenger_id, source_floor, destination_floor) tuple."""
         time, passenger_id, source_floor, destination_floor = raw
         return cls(
             time=time,
@@ -61,7 +61,7 @@ class Request(BaseModel):
 
 @dataclass(slots=True)
 class Passenger:
-    request: Request
+    request: ElevatorRequest
     elevator: int
     arrival_order: int  # position in the time-sorted input; breaks same-tick ties
     pickup_time: int | None = None
