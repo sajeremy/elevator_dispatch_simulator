@@ -8,3 +8,4 @@ wheels/
 
 # Virtual environments
 .venv
+elevator_positions.csv
