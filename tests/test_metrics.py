@@ -16,7 +16,7 @@ from tests.helpers import SAMPLE
 
 @pytest.fixture(scope="module")
 def metrics():
-    return compute_metrics(run_simulation(SAMPLE, SimulationConfig(positions_log_path=None)))
+    return compute_metrics(run_simulation(SAMPLE, SimulationConfig()))
 
 
 def test_wait(metrics):

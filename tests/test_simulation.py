@@ -8,7 +8,7 @@ from tests.helpers import SAMPLE, requests
 
 
 def config(**overrides) -> SimulationConfig:
-    return SimulationConfig(positions_log_path=None, **overrides)
+    return SimulationConfig(**overrides)
 
 
 def by_id(result):
@@ -34,7 +34,8 @@ def test_sample_input_hand_traced():
 
 def test_positions_log_one_row_per_tick_from_zero(tmp_path):
     path = tmp_path / "positions.csv"
-    result = run_simulation(SAMPLE, config().model_copy(update={"positions_log_path": str(path)}))
+    result = run_simulation(SAMPLE, config())
+    result.positions.write_csv(path)
     rows = list(csv.reader(path.open()))
     assert rows[0] == ["time", "e0", "e1", "e2", "e3"]
     assert [int(r[0]) for r in rows[1:]] == list(range(result.ticks))

@@ -70,10 +70,9 @@ class SimulationConfig(BaseModel):  # frozen
     stop_duration: int = 1          # >= 1 ticks per stop (doors, boarding, alighting)
     dispatch: DispatchStrategy = DispatchStrategy.ROUND_ROBIN
     max_ticks: int = 100_000        # >= 1 safety cap
-    positions_log_path: str = "elevator_positions.csv"
 ```
 
-Not in config: workload seed and traffic shape (`workloads.py`), the request data, per-strategy tuning (constructor args).
+Not in config: output paths (the CLI writes the positions log from `result.positions`, so `run_simulation` does no file I/O), workload seed and traffic shape (`workloads.py`), the request data, per-strategy tuning (constructor args).
 Requires Python 3.14+ (matches `pyproject.toml` and `.python-version`).
 
 ## Scope and build order

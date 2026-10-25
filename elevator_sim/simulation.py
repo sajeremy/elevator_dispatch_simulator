@@ -98,9 +98,6 @@ def run_simulation(
         if source.exhausted and undelivered == 0:
             break
 
-    if config.positions_log_path is not None:
-        recorder.write_csv(config.positions_log_path)
-
     return SimulationResult(
         config=config,
         passengers=passengers,

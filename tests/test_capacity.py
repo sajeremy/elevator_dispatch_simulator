@@ -4,7 +4,7 @@ from tests.helpers import requests
 
 
 def config(**overrides) -> SimulationConfig:
-    return SimulationConfig(positions_log_path=None, num_floors=10, num_elevators=1, **overrides)
+    return SimulationConfig(num_floors=10, num_elevators=1, **overrides)
 
 
 def test_never_exceeds_capacity_and_leftovers_wait_for_the_same_car():

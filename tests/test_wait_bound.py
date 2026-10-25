@@ -29,7 +29,6 @@ def test_travel_while_waiting_is_bounded(seed, stop_duration):
         num_elevators=3,
         capacity=1_000,
         stop_duration=stop_duration,
-        positions_log_path=None,
     )
     result = run_simulation(random_requests(seed, 200, floors, 400), config)
     assert result.completed
