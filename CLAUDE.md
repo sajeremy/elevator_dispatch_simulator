@@ -27,7 +27,8 @@ Conventions:
 | 1 Models | `models.py` | `Request`, `Passenger`, `Elevator`, `ElevatorView`, `Direction`, `Action` |
 
 Boundaries:
-- Core imports strategy interfaces only; concrete classes are wired in `registry.py`.
+- Core imports strategy interfaces only; concrete classes are wired in `registry.py`. The core resolves `config.dispatch` through `registry.make_dispatcher` and never names a concrete class. `run_simulation` also takes optional `dispatcher=` / `movement=` instances, used by benchmarks such as `dispatch/fixed.py`.
+- Code lives in the `elevator_sim/` package (so `requests.py` can't shadow the `requests` library); tests in `tests/`.
 - Strategies receive read-only `ElevatorView` snapshots. Only the simulation moves cars or boards passengers (a strategy's own internal counter, such as round robin's turn, is fine).
 - Recorder and metrics observe; they never change state.
 - CLI runs, experiments and benchmarks all go through `run_simulation`, so every comparison uses the same physics and tick order.
