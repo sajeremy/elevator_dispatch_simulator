@@ -1,9 +1,18 @@
 [project]
 name = "elevator-dispatch-simulator"
 version = "0.1.0"
-description = "Add your description here"
+description = "Discrete-time simulator for comparing elevator dispatch algorithms"
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
     "pydantic>=2.14.1",
 ]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]

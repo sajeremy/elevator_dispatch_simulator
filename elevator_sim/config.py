@@ -47,9 +47,9 @@ class SimulationConfig(BaseModel):
         ge=1,
         description="Safety cap on simulation length.",
     )
-    positions_log_path: str = Field(
+    positions_log_path: str | None = Field(
         default="elevator_positions.csv",
-        description="Path of the per-tick elevator positions CSV.",
+        description="Path of the per-tick elevator positions CSV; None skips the file.",
     )
 
     @model_validator(mode="after")
