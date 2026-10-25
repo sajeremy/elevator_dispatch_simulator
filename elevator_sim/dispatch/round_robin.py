@@ -1,6 +1,6 @@
 from collections.abc import Sequence
 
-from ..models import ElevatorView, Request
+from elevator_sim.models import ElevatorView, Request
 
 
 class RoundRobinDispatcher:

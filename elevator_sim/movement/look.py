@@ -1,4 +1,4 @@
-from ..models import Action, Direction, ElevatorView
+from elevator_sim.models import Action, Direction, ElevatorView
 
 
 class LookPolicy:

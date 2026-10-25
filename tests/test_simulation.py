@@ -5,7 +5,7 @@ import pytest
 from elevator_sim.config import SimulationConfig
 from elevator_sim.simulation import run_simulation
 
-from conftest import SAMPLE, requests
+from tests.helpers import SAMPLE, requests
 
 
 def config(**overrides) -> SimulationConfig:

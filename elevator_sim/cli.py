@@ -1,11 +1,11 @@
 import argparse
 from pathlib import Path
 
-from .config import DispatchStrategy, SimulationConfig
-from .metrics import compute_metrics
-from .report import format_report
-from .requests import load_requests_csv
-from .simulation import run_simulation
+from elevator_sim.config import DispatchStrategy, SimulationConfig
+from elevator_sim.metrics import compute_metrics
+from elevator_sim.report import format_report
+from elevator_sim.requests import load_requests_csv
+from elevator_sim.simulation import run_simulation
 
 DEFAULT_REQUESTS = Path(__file__).resolve().parent.parent / "data" / "sample_requests.csv"
 

@@ -1,7 +1,7 @@
 from elevator_sim.config import SimulationConfig
 from elevator_sim.simulation import run_simulation
 
-from conftest import requests
+from tests.helpers import requests
 
 
 def config(**overrides) -> SimulationConfig:

@@ -1,6 +1,6 @@
 """Plain-text summary of a run's metrics."""
 
-from .metrics import Distribution, RunMetrics
+from elevator_sim.metrics import Distribution, RunMetrics
 
 
 def _row(name: str, d: Distribution | None, fmt: str = ".0f") -> str:

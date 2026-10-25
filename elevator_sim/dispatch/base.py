@@ -1,7 +1,7 @@
 from collections.abc import Sequence
 from typing import Protocol
 
-from ..models import ElevatorView, Request
+from elevator_sim.models import ElevatorView, Request
 
 
 class Dispatcher(Protocol):

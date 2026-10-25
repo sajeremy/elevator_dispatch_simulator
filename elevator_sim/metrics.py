@@ -4,8 +4,8 @@ import math
 from collections.abc import Sequence
 from dataclasses import dataclass
 
-from .models import Request
-from .simulation import SimulationResult
+from elevator_sim.models import Request
+from elevator_sim.simulation import SimulationResult
 
 
 @dataclass(frozen=True, slots=True)

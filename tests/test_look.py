@@ -1,5 +1,5 @@
 from elevator_sim.models import Action, Direction, ElevatorView, PickupView
-from elevator_sim.movement import LookPolicy
+from elevator_sim.movement.look import LookPolicy
 
 UP, DOWN, IDLE = Direction.UP, Direction.DOWN, Direction.IDLE
 

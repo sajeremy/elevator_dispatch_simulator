@@ -1,6 +1,6 @@
 from typing import Protocol
 
-from ..models import Action, ElevatorView
+from elevator_sim.models import Action, ElevatorView
 
 
 class MovementPolicy(Protocol):

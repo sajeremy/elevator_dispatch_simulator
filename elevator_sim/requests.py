@@ -11,7 +11,7 @@ from pathlib import Path
 
 from pydantic import ValidationError
 
-from .models import Request
+from elevator_sim.models import Request
 
 CSV_FIELDS = ("time", "id", "source", "dest")
 

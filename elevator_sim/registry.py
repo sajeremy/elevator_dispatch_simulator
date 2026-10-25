@@ -6,9 +6,11 @@ adding an enum member and a line here.
 
 from collections.abc import Callable
 
-from .config import DispatchStrategy
-from .dispatch import Dispatcher, RoundRobinDispatcher
-from .movement import LookPolicy, MovementPolicy
+from elevator_sim.config import DispatchStrategy
+from elevator_sim.dispatch.base import Dispatcher
+from elevator_sim.dispatch.round_robin import RoundRobinDispatcher
+from elevator_sim.movement.base import MovementPolicy
+from elevator_sim.movement.look import LookPolicy
 
 DISPATCHERS: dict[DispatchStrategy, Callable[[], Dispatcher]] = {
     DispatchStrategy.ROUND_ROBIN: RoundRobinDispatcher,

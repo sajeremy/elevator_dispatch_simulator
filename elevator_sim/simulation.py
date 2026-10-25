@@ -12,13 +12,13 @@ The loop ends once every request is released and delivered, or at max_ticks.
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 
-from . import registry
-from .config import SimulationConfig
-from .dispatch import Dispatcher
-from .models import Action, ActionKind, Direction, Elevator, Passenger, Request
-from .movement import MovementPolicy
-from .recorder import PositionRecorder
-from .requests import RequestSource
+from elevator_sim import registry
+from elevator_sim.config import SimulationConfig
+from elevator_sim.dispatch.base import Dispatcher
+from elevator_sim.models import Action, ActionKind, Direction, Elevator, Passenger, Request
+from elevator_sim.movement.base import MovementPolicy
+from elevator_sim.recorder import PositionRecorder
+from elevator_sim.requests import RequestSource
 
 
 @dataclass(slots=True)
