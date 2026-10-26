@@ -2,7 +2,7 @@ import csv
 
 import pytest
 
-from elevator_sim.config import SimulationConfig
+from elevator_sim.config import DispatchStrategy, SimulationConfig
 from elevator_sim.simulation import run_simulation
 from tests.helpers import SAMPLE, requests
 
@@ -95,3 +95,17 @@ def test_invalid_dispatcher_choice_is_rejected():
 
     with pytest.raises(ValueError, match="invalid elevator"):
         run_simulation(SAMPLE, config(), dispatcher=Bad())
+
+
+def test_every_dispatch_strategy_is_registered_and_runs():
+    for strategy in DispatchStrategy:
+        result = run_simulation(SAMPLE, config(dispatch=strategy))
+        assert result.completed, strategy
+
+
+def test_eta_on_sample_input():
+    # p1 and p2 arrive together at the lobby: p1 -> e0 (all equal), and e1
+    # beats sharing e0 (37 vs 37 + 1 tick of delay to p1). p3 at t=10 goes to
+    # idle e2: the busy cars would carry it up to 51 or 37 first.
+    result = run_simulation(SAMPLE, config(dispatch=DispatchStrategy.ETA))
+    assert [p.elevator for p in result.passengers] == [0, 1, 2]

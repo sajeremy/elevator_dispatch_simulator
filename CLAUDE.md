@@ -60,7 +60,7 @@ Then `t += 1`. Stop when the source is exhausted and everyone is delivered, or `
 ```python
 class DispatchStrategy(StrEnum):
     ROUND_ROBIN = "round_robin"
-    # ETA = "eta" added with step 2, so the enum never names an unregistered strategy
+    ETA = "eta"  # each member is added together with its registry entry
 
 class SimulationConfig(BaseModel):  # frozen
     """Floors are 1-indexed: floor 1 is the lobby."""
