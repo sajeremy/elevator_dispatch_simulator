@@ -65,7 +65,7 @@ def run_simulation(
 ) -> SimulationResult:
     """Run one simulation. Strategies default to those named in `config`;
     passing them explicitly is for benchmarks (e.g. a fixed assignment)."""
-    dispatcher = dispatcher or registry.make_dispatcher(config.dispatch)
+    dispatcher = dispatcher or registry.make_dispatcher(config)
     movement = movement or registry.make_movement()
 
     source = RequestSource(requests, config.num_floors)

@@ -6,19 +6,21 @@ adding an enum member and a line here.
 
 from collections.abc import Callable
 
-from elevator_sim.config import DispatchStrategy
+from elevator_sim.config import DispatchStrategy, SimulationConfig
 from elevator_sim.dispatch.base import Dispatcher
 from elevator_sim.dispatch.round_robin import RoundRobinDispatcher
 from elevator_sim.movement.base import MovementPolicy
 from elevator_sim.movement.look import LookPolicy
 
-DISPATCHERS: dict[DispatchStrategy, Callable[[], Dispatcher]] = {
-    DispatchStrategy.ROUND_ROBIN: RoundRobinDispatcher,
+# Each factory gets the run's config, for strategies that need building
+# facts such as stop_duration.
+DISPATCHERS: dict[DispatchStrategy, Callable[[SimulationConfig], Dispatcher]] = {
+    DispatchStrategy.ROUND_ROBIN: lambda config: RoundRobinDispatcher(),
 }
 
 
-def make_dispatcher(strategy: DispatchStrategy) -> Dispatcher:
-    return DISPATCHERS[strategy]()
+def make_dispatcher(config: SimulationConfig) -> Dispatcher:
+    return DISPATCHERS[config.dispatch](config)
 
 
 def make_movement() -> MovementPolicy:
