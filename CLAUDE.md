@@ -24,12 +24,13 @@ Conventions:
 | 4 Core | `simulation.py` | Tick loop; single entry point `run_simulation(requests, config)`; only code that mutates state |
 | 3 Strategies | `dispatch/`, `movement/` | Pluggable. Dispatcher = which car; MovementPolicy = where next |
 | 2 I/O | `elevator_requests.py`, `workloads.py`, `recorder.py`, `metrics.py`, `report.py` | Input loading + no-peek source, seeded workloads, positions log, stats |
-| 1 Models | `models.py` | `ElevatorRequest`, `Passenger`, `Elevator`, `ElevatorView`, `Direction`, `Action` |
+| 1 Models | `models.py`, `physics.py` | `ElevatorRequest`, `Passenger`, `Elevator`, `ElevatorView`, `Direction`, `Action`; `physics.step` = one car's tick (stop: alight then board; or move) |
 
 Boundaries:
 - Core imports strategy interfaces only; concrete classes are wired in `registry.py`. The core resolves `config.dispatch` through `registry.make_dispatcher` and never names a concrete class. `run_simulation` also takes optional `dispatcher=` / `movement=` instances, used by benchmarks such as `dispatch/fixed.py`.
 - Code lives in the `elevator_sim/` package; tests in `tests/`. Imports are absolute, from the module that defines the name.
 - Strategies receive read-only `ElevatorView` snapshots. Only the simulation moves cars or boards passengers (a strategy's own internal counter, such as round robin's turn, is fine).
+- Per-car rules live in `physics.step`. The simulation applies it to live state; the ETA dispatcher applies it to private copies rebuilt from views, so predictions and the real run share one set of physics.
 - Recorder and metrics observe; they never change state.
 - CLI runs, experiments and benchmarks all go through `run_simulation`, so every comparison uses the same physics and tick order.
 

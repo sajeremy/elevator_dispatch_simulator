@@ -1,4 +1,6 @@
-"""The tick loop: the only code that mutates simulation state.
+"""The tick loop: the only code that mutates live simulation state.
+
+Per-car rules (stop, board, alight, move) live in `physics.py`.
 
 Each tick, in order:
   1. Ingest  - requests due at t, from the no-peek source
@@ -16,15 +18,9 @@ from elevator_sim import registry
 from elevator_sim.config import SimulationConfig
 from elevator_sim.dispatch.base import Dispatcher
 from elevator_sim.elevator_requests import RequestSource
-from elevator_sim.models import (
-    Action,
-    ActionKind,
-    Direction,
-    Elevator,
-    ElevatorRequest,
-    Passenger,
-)
+from elevator_sim.models import Elevator, ElevatorRequest, Passenger
 from elevator_sim.movement.base import MovementPolicy
+from elevator_sim.physics import Activity, TickOutcome, step
 from elevator_sim.recorder import PositionRecorder
 
 
@@ -38,6 +34,16 @@ class ElevatorStats:
     @property
     def busy_ticks(self) -> int:
         return self.moving_ticks + self.stopped_ticks
+
+    def count(self, outcome: TickOutcome) -> None:
+        match outcome.activity:
+            case Activity.MOVING:
+                self.moving_ticks += 1
+            case Activity.STOPPED:
+                self.stopped_ticks += 1
+            case Activity.IDLE:
+                self.idle_ticks += 1
+        self.passengers_served += len(outcome.alighted)
 
 
 @dataclass(frozen=True, slots=True)
@@ -90,7 +96,15 @@ def run_simulation(
         ]
 
         for elevator, action in zip(elevators, actions):
-            undelivered -= _apply(elevator, action, t, config, stats[elevator.index])
+            outcome = step(
+                elevator,
+                action,
+                t,
+                stop_duration=config.stop_duration,
+                num_floors=config.num_floors,
+            )
+            stats[elevator.index].count(outcome)
+            undelivered -= len(outcome.alighted)
 
         recorder.record(t, [e.floor for e in elevators])
 
@@ -107,58 +121,3 @@ def run_simulation(
         completed=source.exhausted and undelivered == 0,
     )
 
-
-def _apply(
-    elevator: Elevator,
-    action: Action | None,
-    t: int,
-    config: SimulationConfig,
-    stats: ElevatorStats,
-) -> int:
-    """Carry out one car's tick. Returns how many passengers alighted."""
-    if action is None:  # still mid-stop: doors stay open
-        elevator.stop_ticks_left -= 1
-        stats.stopped_ticks += 1
-        return _exchange(elevator, t, stats)
-
-    match action.kind:
-        case ActionKind.STOP:
-            elevator.direction = action.direction
-            elevator.stop_ticks_left = config.stop_duration - 1
-            stats.stopped_ticks += 1
-            return _exchange(elevator, t, stats)
-        case ActionKind.MOVE:
-            floor = elevator.floor + action.direction
-            if not 1 <= floor <= config.num_floors:
-                raise ValueError(f"elevator {elevator.index} would leave the building")
-            elevator.floor = floor
-            elevator.direction = action.direction
-            stats.moving_ticks += 1
-        case ActionKind.IDLE:
-            elevator.direction = Direction.IDLE
-            stats.idle_ticks += 1
-    return 0
-
-
-def _exchange(elevator: Elevator, t: int, stats: ElevatorStats) -> int:
-    """Alight riders for this floor, then board waiting passengers going the
-    car's way, oldest request first, up to capacity."""
-    floor = elevator.floor
-    alighting = [p for p in elevator.riders if p.request.destination_floor == floor]
-    for p in alighting:
-        p.dropoff_time = t
-    elevator.riders = [p for p in elevator.riders if p.request.destination_floor != floor]
-    stats.passengers_served += len(alighting)
-
-    boarding = [
-        p
-        for p in elevator.waiting
-        if p.request.source_floor == floor and p.request.direction == elevator.direction
-    ]
-    boarding.sort(key=lambda p: p.arrival_order)
-    boarding = boarding[: elevator.capacity - len(elevator.riders)]
-    for p in boarding:
-        p.pickup_time = t
-        elevator.waiting.remove(p)
-        elevator.riders.append(p)
-    return len(alighting)
