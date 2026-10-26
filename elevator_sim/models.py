@@ -93,6 +93,7 @@ class Passenger:
 @dataclass(frozen=True, slots=True)
 class PickupView:
     floor: int
+    destination_floor: int  # known up front under destination dispatch
     direction: Direction
     request_time: int
     arrival_order: int
@@ -109,6 +110,7 @@ class ElevatorView:
     capacity: int
     dropoffs: tuple[int, ...]  # destination floor of each rider
     pickups: tuple[PickupView, ...]  # assigned passengers not yet boarded
+    stop_ticks_left: int = 0  # ticks the car stays stopped after this one
 
     @property
     def has_room(self) -> bool:
@@ -136,12 +138,14 @@ class Elevator:
             pickups=tuple(
                 PickupView(
                     floor=p.request.source_floor,
+                    destination_floor=p.request.destination_floor,
                     direction=p.request.direction,
                     request_time=p.request.time,
                     arrival_order=p.arrival_order,
                 )
                 for p in self.waiting
             ),
+            stop_ticks_left=self.stop_ticks_left,
         )
 
 

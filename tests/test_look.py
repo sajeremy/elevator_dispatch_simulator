@@ -13,7 +13,13 @@ def car(floor, direction=IDLE, dropoffs=(), pickups=(), load=None, capacity=12):
         capacity=capacity,
         dropoffs=tuple(dropoffs),
         pickups=tuple(
-            PickupView(floor=fl, direction=d, request_time=i, arrival_order=i)
+            PickupView(
+                floor=fl,
+                destination_floor=fl + d,  # LOOK only looks at the pickup's direction
+                direction=d,
+                request_time=i,
+                arrival_order=i,
+            )
             for i, (fl, d) in enumerate(pickups)
         ),
     )
