@@ -84,3 +84,12 @@ class RequestSource:
         passed to a strategy.
         """
         return self._next == len(self._pending)
+
+
+def write_requests_csv(requests: Iterable[ElevatorRequest], path: str | Path) -> None:
+    """Write requests in the format `load_requests_csv` reads."""
+    with open(path, "w", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow(CSV_FIELDS)
+        for r in requests:
+            writer.writerow((r.time, r.passenger_id, r.source_floor, r.destination_floor))

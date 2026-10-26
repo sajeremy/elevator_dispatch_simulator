@@ -111,6 +111,8 @@ Movement stays LOOK for every dispatcher comparison. SCAN is comparison-only.
 
 Seeded generators: morning rush (lobby up), evening rush (down to lobby), random inter-floor traffic, long idle gap.
 
+`workloads.office_day` combines them into one day (40 floors, ~1,400 occupants, 07:00–20:00 at 40 ticks per minute). Its output is committed as `data/office_day.csv`; a test keeps the file in sync with the generator. Suggested run: 8 cars, capacity 16.
+
 ## Time budget
 
 Roughly 6–10 hours total, including the README. Time spent is logged and reported in the README.
