@@ -8,13 +8,22 @@ from elevator_sim.elevator_requests import load_requests_csv
 from elevator_sim.metrics import compute_metrics
 from elevator_sim.report import format_report
 from elevator_sim.simulation import run_simulation
+from elevator_sim.workloads import DEFAULT_OFFICE_DAY, OFFICE_DAY_PATH
 
 # Relative to the working directory (the repo root when run as documented).
-# Override with the argument or the ELEVATOR_REQUESTS_CSV environment variable.
-DEFAULT_REQUESTS_PATH = Path("data/sample_requests.csv")
+# Override with --requests or the ELEVATOR_REQUESTS_CSV environment variable.
+DEFAULT_REQUESTS_PATH = OFFICE_DAY_PATH
+SAMPLE_REQUESTS_PATH = Path("data/sample_requests.csv")
 DEFAULT_POSITIONS_LOG_PATH = Path("elevator_positions.csv")
 
-_DEFAULTS = SimulationConfig()
+# Defaults match the office day: its building, and a fleet sized for its peaks.
+OFFICE_DAY_ELEVATORS = 8
+OFFICE_DAY_CAPACITY = 16
+_DEFAULTS = SimulationConfig(
+    num_floors=DEFAULT_OFFICE_DAY.num_floors,
+    num_elevators=OFFICE_DAY_ELEVATORS,
+    capacity=OFFICE_DAY_CAPACITY,
+)
 
 app = typer.Typer(add_completion=False, help="Run an elevator dispatch simulation.")
 

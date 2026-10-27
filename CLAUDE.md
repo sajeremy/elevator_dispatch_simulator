@@ -111,7 +111,7 @@ Movement stays LOOK for every dispatcher comparison. SCAN is comparison-only.
 
 Seeded generators: morning rush (lobby up), evening rush (down to lobby), random inter-floor traffic, long idle gap.
 
-`workloads.office_day` combines them into one day (40 floors, ~1,400 occupants, 07:00–20:00 at 40 ticks per minute). Its output is committed as `data/office_day.csv`; a test keeps the file in sync with the generator. Suggested run: 8 cars, capacity 16.
+`workloads.office_day` combines them into one day (40 floors, ~1,400 occupants, 07:00–20:00 at 40 ticks per minute). Its output is committed as `data/office_day.csv`; a test keeps the file in sync with the generator. It is the CLI's default input, and the CLI's defaults match it: 40 floors, 8 cars, capacity 16. `SimulationConfig`'s own defaults are unchanged.
 
 ## Time budget
 
