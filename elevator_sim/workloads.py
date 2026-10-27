@@ -1,5 +1,14 @@
 """Seeded workload generators.
 
+Single-pattern workloads isolate one kind of traffic each, with arrival
+times uniform over `duration` ticks:
+
+    morning_rush   lobby -> office floors
+    evening_rush   office floors -> lobby
+    interfloor     between office floors, never the lobby
+    random_trips   any two floors (the tiny benchmark cases)
+    idle_gap       two bursts of random trips with a long quiet stretch between
+
 `office_day` models one working day in an office tower: a morning up-peak,
 a two-way lunch peak, light inter-floor traffic during the day and an
 evening down-peak. Each occupant's trips chain together (every trip starts
@@ -106,6 +115,69 @@ def _person_day(
         )
         here = dest
     return requests
+
+
+def morning_rush(
+    n: int, num_floors: int, duration: int, seed: int
+) -> list[ElevatorRequest]:
+    return _trips(
+        n, duration, seed, lambda rng: (LOBBY, rng.randint(LOBBY + 1, num_floors))
+    )
+
+
+def evening_rush(
+    n: int, num_floors: int, duration: int, seed: int
+) -> list[ElevatorRequest]:
+    return _trips(
+        n, duration, seed, lambda rng: (rng.randint(LOBBY + 1, num_floors), LOBBY)
+    )
+
+
+def interfloor(
+    n: int, num_floors: int, duration: int, seed: int
+) -> list[ElevatorRequest]:
+    return _trips(
+        n, duration, seed, lambda rng: rng.sample(range(LOBBY + 1, num_floors + 1), 2)
+    )
+
+
+def random_trips(
+    n: int, num_floors: int, duration: int, seed: int
+) -> list[ElevatorRequest]:
+    return _trips(
+        n, duration, seed, lambda rng: rng.sample(range(1, num_floors + 1), 2)
+    )
+
+
+def idle_gap(
+    n: int, num_floors: int, duration: int, gap: int, seed: int
+) -> list[ElevatorRequest]:
+    """Half the trips in [0, duration), the rest in [duration + gap, 2 * duration + gap)."""
+    first = random_trips(n // 2, num_floors, duration, seed)
+    second = random_trips(n - n // 2, num_floors, duration, seed + 1)
+    shifted = [
+        ElevatorRequest.from_tuple(
+            (
+                r.time + duration + gap,
+                f"late-{r.passenger_id}",
+                r.source_floor,
+                r.destination_floor,
+            )
+        )
+        for r in second
+    ]
+    return first + shifted
+
+
+def _trips(n: int, duration: int, seed: int, pick_floors) -> list[ElevatorRequest]:
+    """n trips with times uniform in [0, duration), sorted by time."""
+    rng = random.Random(seed)
+    trips = []
+    for i in range(n):
+        time = rng.randrange(duration)
+        source, dest = pick_floors(rng)
+        trips.append(ElevatorRequest.from_tuple((time, f"p{i}", source, dest)))
+    return sorted(trips, key=lambda r: r.time)
 
 
 def _clip(x: float, low: float, high: float) -> float:
