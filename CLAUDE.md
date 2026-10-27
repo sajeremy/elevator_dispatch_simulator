@@ -30,7 +30,7 @@ Boundaries:
 - Core imports strategy interfaces only; concrete classes are wired in `registry.py`. The core gets its dispatcher from `registry.make_dispatcher(config)` and never names a concrete class. `run_simulation` also takes optional `dispatcher=` / `movement=` instances, used by benchmarks such as `dispatch/fixed.py`.
 - Code lives in the `elevator_sim/` package; tests in `tests/`. Imports are absolute, from the module that defines the name.
 - Strategies receive read-only `ElevatorView` snapshots. Only the simulation moves cars or boards passengers (a strategy's own internal counter, such as round robin's turn, is fine).
-- Per-car rules live in `physics.step`. The simulation applies it to live state; the ETA dispatcher applies it to private copies rebuilt from views, so predictions and the real run share one set of physics.
+- Per-car rules live in `physics.step`. The simulation applies it to live state; the ETD dispatcher applies it to private copies rebuilt from views, so predictions and the real run share one set of physics.
 - Recorder and metrics observe; they never change state.
 - CLI runs, experiments and benchmarks all go through `run_simulation`, so every comparison uses the same physics and tick order.
 
@@ -60,7 +60,7 @@ Then `t += 1`. Stop when the source is exhausted and everyone is delivered, or `
 ```python
 class DispatchStrategy(StrEnum):
     ROUND_ROBIN = "round_robin"
-    ETA = "eta"  # each member is added together with its registry entry
+    ETD = "etd"  # each member is added together with its registry entry
 
 class SimulationConfig(BaseModel):  # frozen
     """Floors are 1-indexed: floor 1 is the lobby."""
@@ -79,7 +79,7 @@ Requires Python 3.14+ (matches `pyproject.toml` and `.python-version`).
 ## Scope and build order
 
 1. Core loop + round robin + LOOK, end to end on the sample input. Correct positions log and stats.
-2. ETA cost dispatcher (headline): pick the elevator with the smallest marginal increase in total wait + travel for its passengers, by simulating that car's LOOK route with and without the new passenger. Optional knobs: weight wait over travel; fairness penalty on max wait.
+2. ETD (estimated time to destination) dispatcher (headline): pick the elevator with the smallest marginal increase in total wait + travel for its passengers, by simulating that car's LOOK route with and without the new passenger. Optional knobs: weight wait over travel; fairness penalty on max wait.
 3. Direction-aware nearest car (middle comparison).
 4. Zone-based, if time allows; otherwise listed as future work.
 Movement stays LOOK for every dispatcher comparison. SCAN is comparison-only.
@@ -95,11 +95,11 @@ Movement stays LOOK for every dispatcher comparison. SCAN is comparison-only.
 
 ## Design decisions
 
-1. **Capacity vs. immediate assignment:** physics boards up to capacity, in arrival order. Passengers left behind keep their assigned car and stay a pickup target, so the car comes back for them. Assignment stays permanent and nobody starves (each car's passenger set is finite and LOOK always returns to an outstanding target). Reserving capacity at assignment is rejected as too conservative, because riders alight along the route. ETA accounts for capacity by simulating the route; round robin ignores it. `test_wait_bound.py` uses enough capacity that cars never fill.
+1. **Capacity vs. immediate assignment:** physics boards up to capacity, in arrival order. Passengers left behind keep their assigned car and stay a pickup target, so the car comes back for them. Assignment stays permanent and nobody starves (each car's passenger set is finite and LOOK always returns to an outstanding target). Reserving capacity at assignment is rejected as too conservative, because riders alight along the route. ETD accounts for capacity by simulating the route; round robin ignores it. `test_wait_bound.py` uses enough capacity that cars never fill.
 2. **Direction rule at pickup:** at a stop, alight first, then LOOK sets the direction (continue if targets lie ahead, else reverse, else idle), then board waiting passengers whose direction matches. A car moving through floor f stops there for a drop-off, a same-direction pickup, or an opposite-direction pickup when f is the last target of the sweep (the turnaround).
 3. **Same-tick ties:** stable sort by time, keeping input-file order within a tick (not by id: `passenger10` sorts before `passenger2`). Elevator ties go to the lowest index. Boarding under limited capacity is FIFO by request time, then file order.
 4. **Input validation:** fail fast with an error naming the row for `source == dest`, floors outside `[1, num_floors]`, duplicate ids and negative times. Floor range is checked where the config is known (building the source), not in `ElevatorRequest`. Unsorted input is sorted by time; no-peek lives in `arrivals_at(t)`, not in file order. A stream could not sort, so it would need a late-arrival policy.
-5. **Cross-zone trips:** deferred until zone dispatch exists. If built, zones are a dispatch preference only (every car reaches every floor); assign by the non-lobby endpoint's zone; a trip spanning two zones falls back to ETA across all cars.
+5. **Cross-zone trips:** deferred until zone dispatch exists. If built, zones are a dispatch preference only (every car reaches every floor); assign by the non-lobby endpoint's zone; a trip spanning two zones falls back to ETD across all cars.
 6. **Stop cost:** a stop takes `stop_duration >= 1` ticks; a car never stops and moves in the same tick. Alighting and boarding at one floor share one stop.
 7. **Timestamps:** pickup = the tick the passenger boards; drop-off = the tick they alight. Positions are recorded after Apply. A request at tick t can board at tick t (Ingest runs first). Example, sample passenger1 with an idle car at floor 1: board at t=0 (wait 0), move t=1–50, alight at t=51 (travel 51).
 

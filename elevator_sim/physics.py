@@ -1,6 +1,6 @@
 """The rules for one car's tick: stop (alight, then board) or move one floor.
 
-The simulation applies them to live state. The ETA dispatcher applies them
+The simulation applies them to live state. The ETD dispatcher applies them
 to private copies to predict a route, so its predictions use exactly the
 same physics as the run itself.
 """

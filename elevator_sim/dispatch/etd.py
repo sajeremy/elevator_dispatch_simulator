@@ -1,5 +1,9 @@
-"""ETA cost dispatcher: assign each request to the car whose passengers lose
-the least time by taking it.
+"""ETD (estimated time to destination) dispatcher: assign each request to
+the car whose passengers lose the least time by taking it.
+
+Unlike an ETA (estimated time of arrival) dispatcher, which scores only how
+soon a car reaches the caller, ETD scores whole journeys: the new
+passenger's wait and ride, plus the delay to everyone already assigned.
 
 For every car, predict its LOOK route twice from the current tick: once with
 its current passengers and once with the new one added. The car's cost is
@@ -54,7 +58,7 @@ def pickup_view(request: ElevatorRequest, arrival_order: int = _NEWEST) -> Picku
     )
 
 
-class EtaDispatcher:
+class EtdDispatcher:
     def __init__(
         self,
         movement: MovementPolicy,

@@ -6,7 +6,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 class DispatchStrategy(StrEnum):
     ROUND_ROBIN = "round_robin"
-    ETA = "eta"
+    ETD = "etd"
 
 
 class SimulationConfig(BaseModel):

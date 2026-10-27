@@ -3,7 +3,7 @@ import random
 import pytest
 
 from elevator_sim.config import SimulationConfig
-from elevator_sim.dispatch.eta import EtaDispatcher, pickup_view
+from elevator_sim.dispatch.etd import EtdDispatcher, pickup_view
 from elevator_sim.models import Direction, ElevatorRequest, ElevatorView, PickupView
 from elevator_sim.movement.look import LookPolicy
 from elevator_sim.simulation import run_simulation
@@ -11,9 +11,9 @@ from elevator_sim.simulation import run_simulation
 UP, IDLE = Direction.UP, Direction.IDLE
 
 
-def eta(**overrides) -> EtaDispatcher:
+def etd(**overrides) -> EtdDispatcher:
     kwargs = {"stop_duration": 1, "num_floors": 40, "horizon": 10_000} | overrides
-    return EtaDispatcher(LookPolicy(), **kwargs)
+    return EtdDispatcher(LookPolicy(), **kwargs)
 
 
 def car(index, floor, direction=IDLE, dropoffs=(), pickups=()) -> ElevatorView:
@@ -34,12 +34,12 @@ def request(source, dest, time=0, pid="new") -> ElevatorRequest:
 
 def test_idle_cars_nearest_wins():
     cars = [car(0, 1), car(1, 30)]
-    assert eta().assign(request(28, 2), cars, t=0) == 1
+    assert etd().assign(request(28, 2), cars, t=0) == 1
 
 
 def test_ties_go_to_the_lowest_index():
     cars = [car(0, 5), car(1, 5)]
-    assert eta().assign(request(10, 2), cars, t=0) == 0
+    assert etd().assign(request(10, 2), cars, t=0) == 0
 
 
 def test_marginal_cost_counts_delay_to_existing_riders():
@@ -47,10 +47,10 @@ def test_marginal_cost_counts_delay_to_existing_riders():
     # New passenger: board at t=2, alight at t=9 -> 2 + 7.
     # Rider: two extra stops (12 and 18) -> +2.
     busy = car(0, 10, UP, dropoffs=[20])
-    assert eta().marginal_cost(busy, pickup_view(request(12, 18)), t=0) == 11
+    assert etd().marginal_cost(busy, pickup_view(request(12, 18)), t=0) == 11
     # Idle car at 1: board at t=11, alight at t=18 -> 11 + 7, nobody else delayed.
-    assert eta().marginal_cost(car(1, 1), pickup_view(request(12, 18)), t=0) == 18
-    assert eta().assign(request(12, 18), [busy, car(1, 1)], t=0) == 0
+    assert etd().marginal_cost(car(1, 1), pickup_view(request(12, 18)), t=0) == 18
+    assert etd().assign(request(12, 18), [busy, car(1, 1)], t=0) == 0
 
 
 def test_wait_weight_trades_rider_delay_for_shorter_waits():
@@ -60,9 +60,9 @@ def test_wait_weight_trades_rider_delay_for_shorter_waits():
     cars = [crowded, car(1, 1)]
     short_trip = request(11, 12)
     # wait_weight 1: car0 = 1 + 2 + 5 riders x 2 stops = 13; car1 = 10 + 2 = 12.
-    assert eta(wait_weight=1.0).assign(short_trip, cars, t=0) == 1
+    assert etd(wait_weight=1.0).assign(short_trip, cars, t=0) == 1
     # wait_weight 2: car0 = 2 + 2 + 10 = 14; car1 = 20 + 2 = 22.
-    assert eta(wait_weight=2.0).assign(short_trip, cars, t=0) == 0
+    assert etd(wait_weight=2.0).assign(short_trip, cars, t=0) == 0
 
 
 def test_prediction_respects_capacity():
@@ -70,17 +70,17 @@ def test_prediction_respects_capacity():
         index=0, floor=1, direction=IDLE, load=1, capacity=1, dropoffs=(5,), pickups=()
     )
     new = PickupView(floor=1, destination_floor=3, direction=UP, request_time=0, arrival_order=0)
-    trips = eta().predict(full, t=0, extra=new)
+    trips = etd().predict(full, t=0, extra=new)
     # Can't board at floor 1 while full: rides to 5, comes back for the new passenger.
     rider, passenger = trips
     assert rider.dropoff == 4
     assert passenger.pickup > rider.dropoff
 
 
-class RecordingEta:
-    """Wraps EtaDispatcher and keeps each car's prediction from its last assignment."""
+class RecordingEtd:
+    """Wraps EtdDispatcher and keeps each car's prediction from its last assignment."""
 
-    def __init__(self, inner: EtaDispatcher) -> None:
+    def __init__(self, inner: EtdDispatcher) -> None:
         self.inner = inner
         self.count = 0
         self.last: dict[int, tuple[int, list]] = {}
@@ -104,7 +104,7 @@ def test_last_prediction_per_car_matches_the_run_exactly(seed, capacity):
         source, dest = rng.sample(range(1, 21), 2)
         reqs.append(ElevatorRequest.from_tuple((rng.randrange(120), f"p{i}", source, dest)))
     config = SimulationConfig(num_floors=20, num_elevators=3, capacity=capacity, stop_duration=2)
-    spy = RecordingEta(eta(stop_duration=2, num_floors=20))
+    spy = RecordingEtd(etd(stop_duration=2, num_floors=20))
     result = run_simulation(reqs, config, dispatcher=spy)
     assert result.completed
 

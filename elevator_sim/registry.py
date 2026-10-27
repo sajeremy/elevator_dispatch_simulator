@@ -8,7 +8,7 @@ from collections.abc import Callable
 
 from elevator_sim.config import DispatchStrategy, SimulationConfig
 from elevator_sim.dispatch.base import Dispatcher
-from elevator_sim.dispatch.eta import EtaDispatcher
+from elevator_sim.dispatch.etd import EtdDispatcher
 from elevator_sim.dispatch.round_robin import RoundRobinDispatcher
 from elevator_sim.movement.base import MovementPolicy
 from elevator_sim.movement.look import LookPolicy
@@ -17,7 +17,7 @@ from elevator_sim.movement.look import LookPolicy
 # facts such as stop_duration.
 DISPATCHERS: dict[DispatchStrategy, Callable[[SimulationConfig], Dispatcher]] = {
     DispatchStrategy.ROUND_ROBIN: lambda config: RoundRobinDispatcher(),
-    DispatchStrategy.ETA: lambda config: EtaDispatcher(
+    DispatchStrategy.ETD: lambda config: EtdDispatcher(
         make_movement(),
         stop_duration=config.stop_duration,
         num_floors=config.num_floors,
