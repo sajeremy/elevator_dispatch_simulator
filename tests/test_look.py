@@ -84,6 +84,14 @@ def test_full_car_ignores_pickups():
     assert look.next_action(view) == Action.move(UP)
 
 
-def test_full_car_does_not_chase_pickups_behind():
-    view = car(9, UP, dropoffs=[9, 3], pickups=[(12, DOWN)], capacity=2)
-    assert look.next_action(view) == Action.stop(DOWN)
+def test_car_that_empties_here_counts_its_pickups_again():
+    # Full on arrival, but both riders get off here: the pickup ahead at 12
+    # is a target, so the car stops to let them off and carries on upward.
+    view = car(9, UP, dropoffs=[9, 9], pickups=[(12, DOWN)], capacity=2)
+    assert look.next_action(view) == Action.stop(UP)
+
+
+def test_seat_reserved_for_an_older_pickup_ahead_means_no_stop_here():
+    # One free seat; the pickup here (newer) and one ahead (older) both go up.
+    view = car(4, UP, dropoffs=[9], pickups=[(8, UP), (4, UP)], capacity=2)
+    assert look.next_action(view) == Action.move(UP)

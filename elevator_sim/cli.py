@@ -6,6 +6,7 @@ import typer
 from elevator_sim.config import DispatchStrategy, SimulationConfig
 from elevator_sim.elevator_requests import load_requests_csv
 from elevator_sim.experiments import compare
+from elevator_sim.recorder import write_passengers_csv
 from elevator_sim.report import format_comparison, format_report, observations
 from elevator_sim.workloads import DEFAULT_OFFICE_DAY, OFFICE_DAY_PATH
 
@@ -14,6 +15,7 @@ from elevator_sim.workloads import DEFAULT_OFFICE_DAY, OFFICE_DAY_PATH
 DEFAULT_REQUESTS_PATH = OFFICE_DAY_PATH
 SAMPLE_REQUESTS_PATH = Path("data/sample_requests.csv")
 DEFAULT_POSITIONS_LOG_PATH = Path("elevator_positions.csv")
+DEFAULT_PASSENGER_LOG_PATH = Path("elevator_passengers.csv")
 
 # Defaults match the office day: its building, and a fleet sized for its peaks.
 OFFICE_DAY_ELEVATORS = 8
@@ -67,6 +69,13 @@ def run(
         Path,
         typer.Option(dir_okay=False, help="Where to write the per-tick positions CSV."),
     ] = DEFAULT_POSITIONS_LOG_PATH,
+    passenger_log: Annotated[
+        Path,
+        typer.Option(
+            dir_okay=False,
+            help="Where to write the per-passenger CSV (times, wait, travel, stops).",
+        ),
+    ] = DEFAULT_PASSENGER_LOG_PATH,
 ) -> None:
     strategies = list(dict.fromkeys(dispatch or DispatchStrategy))  # dedupe, keep order
     try:
@@ -87,8 +96,10 @@ def run(
     if len(runs) == 1:
         run = runs[0]
         run.result.positions.write_csv(positions_log)
+        write_passengers_csv(run.result.passengers, passenger_log)
         typer.echo(format_report(run.metrics))
         typer.echo(f"\nPositions log: {positions_log}")
+        typer.echo(f"Passenger log: {passenger_log}")
         return
 
     typer.echo(format_comparison([(r.strategy.value, r.metrics) for r in runs]))
@@ -96,11 +107,17 @@ def run(
     for r in runs:
         typer.echo(f"  {r.strategy.value}")
         typer.echo("\n".join(f"    - {note}" for note in observations(r.metrics)))
-    typer.echo("\nPositions logs:")
+    typer.echo("\nPositions and passenger logs:")
     for r in runs:
-        path = positions_log.with_stem(f"{positions_log.stem}_{r.strategy.value}")
-        r.result.positions.write_csv(path)
-        typer.echo(f"  {r.strategy.value}: {path}")
+        positions = _per_strategy(positions_log, r.strategy.value)
+        passengers = _per_strategy(passenger_log, r.strategy.value)
+        r.result.positions.write_csv(positions)
+        write_passengers_csv(r.result.passengers, passengers)
+        typer.echo(f"  {r.strategy.value}: {positions}, {passengers}")
+
+
+def _per_strategy(path: Path, strategy: str) -> Path:
+    return path.with_stem(f"{path.stem}_{strategy}")
 
 
 def main() -> None:

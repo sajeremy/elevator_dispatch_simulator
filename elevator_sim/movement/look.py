@@ -1,23 +1,27 @@
 from elevator_sim.models import Action, Direction, ElevatorView
+from elevator_sim.physics import boarding
 
 
 class LookPolicy:
     """LOOK: keep sweeping while there is work ahead, then reverse.
 
     Targets are rider drop-offs plus the car's assigned pickups. Pickups are
-    ignored while the car is full: it cannot board anyone, so it serves
-    drop-offs first and comes back.
+    ignored while the car is full (counting the riders who get off here): it
+    cannot board anyone, so it serves drop-offs first and comes back.
 
     At floor f a car stops for a drop-off, or for a pickup going the way the
-    car will leave. The leaving direction is the current one if work remains
-    ahead (or a pickup here goes that way), otherwise the reverse. That way a
-    pickup going the other way is collected at the turnaround, never carried
-    the wrong way first.
+    car will leave that can actually board (`physics.boarding`: seats may be
+    reserved for older pickups further along). The leaving direction is the
+    current one if work remains ahead (or a boardable pickup here goes that
+    way), otherwise the reverse. That way a pickup going the other way is
+    collected at the turnaround, never carried the wrong way first.
     """
 
     def next_action(self, elevator: ElevatorView) -> Action:
         f = elevator.floor
-        pickups = elevator.pickups if elevator.has_room else ()
+        # Seats free once the riders for this floor have stepped off.
+        room = elevator.capacity - elevator.load + elevator.dropoffs.count(f)
+        pickups = elevator.pickups if room > 0 else ()
         pickups_here = [p for p in pickups if p.floor == f]
         other_targets = [x for x in elevator.dropoffs if x != f]
         other_targets += [p.floor for p in pickups if p.floor != f]
@@ -26,7 +30,7 @@ class LookPolicy:
             return any((x - f) * d > 0 for x in other_targets)
 
         def pickup_here(d: Direction) -> bool:
-            return any(p.direction == d for p in pickups_here)
+            return bool(boarding(pickups, f, d, room))
 
         if elevator.direction is not Direction.IDLE:
             d = elevator.direction

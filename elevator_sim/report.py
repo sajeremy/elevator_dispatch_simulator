@@ -42,6 +42,16 @@ def observations(m: RunMetrics) -> list[str]:
             f"Load balance: e{busiest.index} busy {busiest.utilization:.0%} of ticks, "
             f"e{idlest.index} {idlest.utilization:.0%}."
         )
+    if m.elevators:
+        full = f"full for {m.full_ticks} car-ticks" if m.full_ticks else "never full"
+        if m.most_left_behind:
+            who, times = m.most_left_behind
+            left = f"{m.left_behind} departures left a passenger behind (most: {who}, {times}x)"
+        else:
+            left = "nobody left behind"
+        notes.append(f"Capacity: max load {m.max_load}; cars {full}; {left}.")
+    if m.deadhead is not None:
+        notes.append(f"Deadheading: {m.deadhead:.0%} of moving ticks carry nobody.")
     return notes
 
 
@@ -60,6 +70,7 @@ def format_report(m: RunMetrics) -> str:
         lines.append(
             f"  e{e.index}  served {e.passengers_served:>4}  busy {e.utilization:>4.0%}  "
             f"(moving {e.moving_ticks}, stopped {e.stopped_ticks}, idle {e.idle_ticks})"
+            f"  max load {e.max_load}"
         )
     notes = observations(m)
     if notes:
@@ -84,12 +95,17 @@ def _stat(d: Distribution | None, stat: str) -> float | None:
     return None if d is None else getattr(d, stat)
 
 
-# (label, value from a run's metrics, number format, whether lower is better).
+# (label, value from a run's metrics, number format, whether lower is better;
+# None when the row has no better direction).
 _COMPARISON_ROWS = [
     ("delivered", lambda m: m.delivered, "d", False),
     *_distribution_rows("wait", "wait"),
     *_distribution_rows("total", "total"),
     *_distribution_rows("stops", "stops"),
+    ("max load", lambda m: m.max_load, "d", None),
+    ("full car-ticks", lambda m: m.full_ticks, "d", True),
+    ("left behind", lambda m: m.left_behind, "d", True),
+    ("deadhead", lambda m: m.deadhead, ".0%", True),
 ]
 
 # Headline rows for the summary against the first column.

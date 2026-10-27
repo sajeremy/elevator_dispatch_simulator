@@ -9,3 +9,4 @@ wheels/
 # Virtual environments
 .venv
 elevator_positions*.csv
+elevator_passengers*.csv

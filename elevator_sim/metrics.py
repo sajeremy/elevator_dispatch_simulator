@@ -48,6 +48,10 @@ class ElevatorMetrics:
     moving_ticks: int
     stopped_ticks: int
     idle_ticks: int
+    max_load: int
+    full_ticks: int
+    empty_moving_ticks: int
+    left_behind: int
 
 
 @dataclass(frozen=True, slots=True)
@@ -63,12 +67,24 @@ class RunMetrics:
     ideal_total_sum: int  # Level 1 bound summed over delivered passengers
     longest_wait: tuple[str, int] | None  # (passenger id, wait)
     elevators: tuple[ElevatorMetrics, ...]
+    # Capacity pressure: how often cars were full and had to move on without
+    # one of their own passengers, and how much movement carried nobody.
+    max_load: int
+    full_ticks: int  # summed over cars
+    left_behind: int  # departures that left a same-direction pickup behind
+    most_left_behind: tuple[str, int] | None  # (passenger id, times), if any
+    deadhead: float | None  # share of moving ticks with nobody aboard
 
 
 def compute_metrics(result: SimulationResult) -> RunMetrics:
     delivered = [p for p in result.passengers if p.delivered]
     stop = result.config.stop_duration
     worst = max(delivered, key=lambda p: (p.wait, -p.arrival_order), default=None)
+    passed = max(
+        result.passengers, key=lambda p: (p.left_behind, -p.arrival_order), default=None
+    )
+    moving = sum(s.moving_ticks for s in result.elevator_stats)
+    empty = sum(s.empty_moving_ticks for s in result.elevator_stats)
     return RunMetrics(
         passengers=len(result.passengers),
         delivered=len(delivered),
@@ -88,7 +104,20 @@ def compute_metrics(result: SimulationResult) -> RunMetrics:
                 moving_ticks=s.moving_ticks,
                 stopped_ticks=s.stopped_ticks,
                 idle_ticks=s.idle_ticks,
+                max_load=s.max_load,
+                full_ticks=s.full_ticks,
+                empty_moving_ticks=s.empty_moving_ticks,
+                left_behind=s.left_behind,
             )
             for i, s in enumerate(result.elevator_stats)
         ),
+        max_load=max((s.max_load for s in result.elevator_stats), default=0),
+        full_ticks=sum(s.full_ticks for s in result.elevator_stats),
+        left_behind=sum(s.left_behind for s in result.elevator_stats),
+        most_left_behind=(
+            (passed.request.passenger_id, passed.left_behind)
+            if passed and passed.left_behind
+            else None
+        ),
+        deadhead=empty / moving if moving else None,
     )

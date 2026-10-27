@@ -11,7 +11,7 @@ import pytest
 from elevator_sim.config import SimulationConfig
 from elevator_sim.metrics import compute_metrics, summarize
 from elevator_sim.simulation import run_simulation
-from tests.helpers import SAMPLE
+from tests.helpers import SAMPLE, requests
 
 
 @pytest.fixture(scope="module")
@@ -62,3 +62,24 @@ def test_p95_nearest_rank():
     assert summarize(list(range(1, 21))).p95 == 19  # ceil(0.95 * 20) = 19th value
     assert summarize(list(range(1, 101))).p95 == 95
     assert summarize([]) is None
+
+
+def test_capacity_metrics_on_a_crowded_car():
+    # Five passengers 1 -> 5 at t=0 in a capacity-2 car: three round trips,
+    # 20 moving ticks. Load 2 on the first two trips (t=0..4 and t=10..14),
+    # 1 on the last; the car returns empty twice (t=6..9, t=16..19); it
+    # leaves the lobby without p2, p3, p4 at t=1 and without p4 at t=11.
+    reqs = requests(*[(0, f"p{i}", 1, 5) for i in range(5)])
+    config = SimulationConfig(num_floors=10, num_elevators=1, capacity=2)
+    m = compute_metrics(run_simulation(reqs, config))
+    e = m.elevators[0]
+    assert (e.max_load, e.full_ticks, e.empty_moving_ticks, e.left_behind) == (2, 10, 8, 4)
+    assert (m.max_load, m.full_ticks, m.left_behind) == (2, 10, 4)
+    assert m.deadhead == pytest.approx(8 / 20)
+    assert m.most_left_behind == ("p4", 2)
+
+
+def test_capacity_metrics_when_nothing_binds(metrics):
+    assert (metrics.max_load, metrics.full_ticks, metrics.left_behind) == (1, 0, 0)
+    assert metrics.most_left_behind is None
+    assert metrics.deadhead == pytest.approx(19 / 124)  # e2's 19 floors to passenger3

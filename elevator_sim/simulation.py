@@ -26,10 +26,15 @@ from elevator_sim.recorder import PositionRecorder
 
 @dataclass(slots=True)
 class ElevatorStats:
+    capacity: int
     moving_ticks: int = 0
     stopped_ticks: int = 0
     idle_ticks: int = 0
     passengers_served: int = 0
+    max_load: int = 0
+    full_ticks: int = 0  # ticks ending with every seat taken
+    empty_moving_ticks: int = 0  # moving with nobody aboard (deadheading)
+    left_behind: int = 0  # departures that left a same-direction pickup behind
 
     @property
     def busy_ticks(self) -> int:
@@ -39,11 +44,17 @@ class ElevatorStats:
         match outcome.activity:
             case Activity.MOVING:
                 self.moving_ticks += 1
+                if outcome.load == 0:
+                    self.empty_moving_ticks += 1
             case Activity.STOPPED:
                 self.stopped_ticks += 1
             case Activity.IDLE:
                 self.idle_ticks += 1
         self.passengers_served += len(outcome.alighted)
+        self.max_load = max(self.max_load, outcome.load)
+        if outcome.load == self.capacity:
+            self.full_ticks += 1
+        self.left_behind += len(outcome.left_behind)
 
 
 @dataclass(frozen=True, slots=True)
@@ -73,7 +84,7 @@ def run_simulation(
         Elevator(index=i, floor=config.start_floor, capacity=config.capacity)
         for i in range(config.num_elevators)
     ]
-    stats = [ElevatorStats() for _ in elevators]
+    stats = [ElevatorStats(capacity=config.capacity) for _ in elevators]
     recorder = PositionRecorder(config.num_elevators)
     passengers: list[Passenger] = []
     undelivered = 0

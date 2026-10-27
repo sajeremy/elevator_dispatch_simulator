@@ -67,6 +67,7 @@ class Passenger:
     pickup_time: int | None = None
     dropoff_time: int | None = None
     stops: int = 0  # intermediate stops ridden: not counting boarding or alighting
+    left_behind: int = 0  # times the assigned car moved off this floor without them
 
     @property
     def delivered(self) -> bool:
@@ -108,10 +109,6 @@ class ElevatorView:
     dropoffs: tuple[int, ...]  # destination floor of each rider
     pickups: tuple[PickupView, ...]  # assigned passengers not yet boarded
     stop_ticks_left: int = 0  # ticks the car stays stopped after this one
-
-    @property
-    def has_room(self) -> bool:
-        return self.load < self.capacity
 
 
 @dataclass(slots=True)

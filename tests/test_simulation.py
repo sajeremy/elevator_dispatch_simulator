@@ -3,6 +3,7 @@ import csv
 import pytest
 
 from elevator_sim.config import DispatchStrategy, SimulationConfig
+from elevator_sim.recorder import write_passengers_csv
 from elevator_sim.simulation import run_simulation
 from tests.helpers import SAMPLE, requests
 
@@ -116,3 +117,25 @@ def test_etd_on_sample_input():
     # idle e2: the busy cars would carry it up to 51 or 37 first.
     result = run_simulation(SAMPLE, config(dispatch=DispatchStrategy.ETD))
     assert [p.elevator for p in result.passengers] == [0, 1, 2]
+
+
+def test_passengers_log_one_row_per_passenger(tmp_path):
+    path = tmp_path / "passengers.csv"
+    result = run_simulation(SAMPLE, config())
+    write_passengers_csv(result.passengers, path)
+    rows = list(csv.reader(path.open()))
+    assert rows[0] == [
+        "id", "elevator", "request_time", "source", "dest",
+        "pickup_time", "dropoff_time", "wait", "travel", "total", "stops", "left_behind",
+    ]
+    assert rows[1] == ["passenger1", "0", "0", "1", "51", "0", "51", "0", "51", "51", "0", "0"]
+    assert rows[3] == ["passenger3", "2", "10", "20", "1", "29", "49", "19", "20", "39", "0", "0"]
+
+
+def test_passengers_log_leaves_times_blank_for_the_undelivered(tmp_path):
+    path = tmp_path / "passengers.csv"
+    result = run_simulation(SAMPLE, config(max_ticks=11))  # nobody delivered yet
+    write_passengers_csv(result.passengers, path)
+    rows = list(csv.reader(path.open()))
+    assert rows[1][:7] == ["passenger1", "0", "0", "1", "51", "0", ""]  # boarded, not dropped
+    assert rows[3][5:10] == ["", "", "", "", ""]  # passenger3 not even picked up

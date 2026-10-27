@@ -32,24 +32,40 @@ def test_defaults_run_the_office_day(tmp_path):
     assert "6078/6078 delivered" in result.output
 
 
-def test_runs_and_writes_positions_log(tmp_path):
+def test_runs_and_writes_positions_and_passenger_logs(tmp_path):
     log = tmp_path / "positions.csv"
-    args = [*SAMPLE_BUILDING, "--dispatch", "etd", "--positions-log", str(log)]
+    passengers = tmp_path / "passengers.csv"
+    args = [
+        *SAMPLE_BUILDING,
+        "--dispatch",
+        "etd",
+        "--positions-log",
+        str(log),
+        "--passenger-log",
+        str(passengers),
+    ]
     result = runner.invoke(app, args)
     assert result.exit_code == 0, result.output
     assert "3/3 delivered in 52 ticks" in result.output
     assert log.read_text().startswith("time,e0,e1,e2,e3\n")
+    lines = passengers.read_text().splitlines()
+    assert lines[0].startswith("id,elevator,request_time,")
+    assert len(lines) == 4
+    assert str(passengers) in result.output
 
 
 def test_without_dispatch_compares_every_strategy(tmp_path):
     log = tmp_path / "positions.csv"
-    result = runner.invoke(app, [*SAMPLE_BUILDING, "--positions-log", str(log)])
+    args = [*SAMPLE_BUILDING, "--positions-log", str(log)]
+    args += ["--passenger-log", str(tmp_path / "passengers.csv")]
+    result = runner.invoke(app, args)
     assert result.exit_code == 0, result.output
     assert "Dispatch comparison (3 passengers)" in result.output
     assert "Observations" in result.output
     for strategy in DispatchStrategy:
         assert strategy.value in result.output
         assert (tmp_path / f"positions_{strategy.value}.csv").is_file()
+        assert (tmp_path / f"passengers_{strategy.value}.csv").is_file()
     assert not log.exists()
 
 

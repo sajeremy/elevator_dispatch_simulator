@@ -33,3 +33,13 @@ def test_capacity_one_still_serves_everyone():
     result = run_simulation(reqs, config(capacity=1))
     assert result.completed
     assert all(x.delivered for x in result.passengers)
+
+
+def test_full_car_that_empties_here_boards_in_the_same_stop():
+    # a rides 1 -> 5 in a capacity-1 car; b waits at 5 going up. The car is
+    # full on arrival but empties there, so b boards in the same stop.
+    reqs = requests((0, "a", 1, 5), (0, "b", 5, 8))
+    result = run_simulation(reqs, config(capacity=1))
+    p = {x.request.passenger_id: x for x in result.passengers}
+    assert p["a"].dropoff_time == p["b"].pickup_time == 5
+    assert result.elevator_stats[0].stopped_ticks == 3  # board a; swap; alight b
