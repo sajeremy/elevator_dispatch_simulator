@@ -33,6 +33,7 @@ Boundaries:
 - Per-car rules live in `physics.step`. The simulation applies it to live state; the ETD dispatcher applies it to private copies rebuilt from views, so predictions and the real run share one set of physics.
 - Recorder and metrics observe; they never change state.
 - CLI runs, experiments and benchmarks all go through `run_simulation`, so every comparison uses the same physics and tick order.
+- Without `--dispatch`, the CLI compares every registered strategy: `experiments.compare` runs each in its own process (same input, same config apart from `dispatch`) and `report.format_comparison` prints the metrics side by side, writing one positions log per strategy (`elevator_positions_<strategy>.csv`). One `--dispatch` value gives the single-run report.
 
 Interfaces:
 
