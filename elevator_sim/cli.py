@@ -79,11 +79,7 @@ def run(
         typer.echo(f"\nPositions log: {positions_log}")
         return
 
-    typer.echo(
-        format_comparison(
-            [(r.strategy.value, r.metrics) for r in runs], [r.seconds for r in runs]
-        )
-    )
+    typer.echo(format_comparison([(r.strategy.value, r.metrics) for r in runs]))
     typer.echo("\nPositions logs:")
     for r in runs:
         path = positions_log.with_stem(f"{positions_log.stem}_{r.strategy.value}")

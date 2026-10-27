@@ -1,9 +1,9 @@
 """Sample input, hand-computed (round robin, LOOK, 60 floors, 4 cars, stop 1).
 
-    passenger  car  request  pickup  dropoff  wait  travel  total  distance
-    p1         e0      0       0       51       0     51     51      50
-    p2         e1      0       0       37       0     37     37      36
-    p3         e2     10      29       49      19     20     39      19
+passenger  car  request  pickup  dropoff  wait  travel  total  distance
+p1         e0      0       0       51       0     51     51      50
+p2         e1      0       0       37       0     37     37      36
+p3         e2     10      29       49      19     20     39      19
 """
 
 import pytest
@@ -24,15 +24,15 @@ def test_wait(metrics):
     assert metrics.wait.mean == pytest.approx(19 / 3)
 
 
-def test_travel_and_total(metrics):
-    assert (metrics.travel.min, metrics.travel.max) == (20, 51)
+def test_total(metrics):
     assert (metrics.total.min, metrics.total.max, metrics.total.p95) == (37, 51, 51)
     assert metrics.total.mean == pytest.approx(127 / 3)
 
 
-def test_stretch(metrics):
-    assert metrics.stretch.min == pytest.approx(51 / 50)
-    assert metrics.stretch.max == pytest.approx(39 / 19)
+def test_stops(metrics):
+    # Each passenger rides alone, straight to their floor.
+    s = metrics.stops
+    assert (s.min, s.mean, s.p95, s.max) == (0, 0, 0, 0)
 
 
 def test_level1_bound(metrics):

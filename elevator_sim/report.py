@@ -9,8 +9,8 @@ def _row(name: str, d: Distribution | None, fmt: str = ".0f") -> str:
     if d is None:
         return f"  {name:<8} (no delivered passengers)"
     return (
-        f"  {name:<8} min {d.min:>7{fmt}}  max {d.max:>7{fmt}}  "
-        f"mean {d.mean:>7.2f}  p95 {d.p95:>7{fmt}}"
+        f"  {name:<8} min {d.min:>7{fmt}}  mean {d.mean:>7.2f}  "
+        f"p95 {d.p95:>7{fmt}}  max {d.max:>7{fmt}}"
     )
 
 
@@ -49,11 +49,10 @@ def format_report(m: RunMetrics) -> str:
     lines = [
         f"Passengers: {m.delivered}/{m.passengers} delivered in {m.ticks} ticks",
         "",
-        "Times (ticks)",
+        "Per trip (wait and total in ticks; stops = intermediate stops)",
         _row("wait", m.wait),
-        _row("travel", m.travel),
         _row("total", m.total),
-        _row("stretch", m.stretch, ".2f"),
+        _row("stops", m.stops),
         "",
         "Elevators",
     ]
@@ -68,9 +67,15 @@ def format_report(m: RunMetrics) -> str:
     return "\n".join(lines)
 
 
-def _distribution_rows(name: str, attr: str, fmt: str) -> list[tuple]:
+def _distribution_rows(name: str, attr: str) -> list[tuple]:
+    """min, mean, p95, max; only the mean can be fractional."""
     return [
-        (f"{name} {stat}", lambda m, s=stat: _stat(getattr(m, attr), s), fmt, True)
+        (
+            f"{name} {stat}",
+            lambda m, s=stat: _stat(getattr(m, attr), s),
+            ".1f" if stat == "mean" else ".0f",
+            True,
+        )
         for stat in ("min", "mean", "p95", "max")
     ]
 
@@ -79,51 +84,22 @@ def _stat(d: Distribution | None, stat: str) -> float | None:
     return None if d is None else getattr(d, stat)
 
 
-def _overhead(m: RunMetrics) -> float | None:
-    return m.total_time_sum / m.ideal_total_sum - 1 if m.ideal_total_sum else None
-
-
-def _wait_share(m: RunMetrics) -> float | None:
-    if not (m.wait and m.total_time_sum):
-        return None
-    return m.wait.mean * m.wait.count / m.total_time_sum
-
-
-def _busy(m: RunMetrics, pick) -> float | None:
-    return pick(e.utilization for e in m.elevators) if m.elevators else None
-
-
 # (label, value from a run's metrics, number format, whether lower is better).
-# Rows with no better direction (None) are shown but never starred.
 _COMPARISON_ROWS = [
     ("delivered", lambda m: m.delivered, "d", False),
-    ("run ticks", lambda m: m.ticks, "d", True),
-    *_distribution_rows("wait", "wait", ".1f"),
-    *_distribution_rows("travel", "travel", ".1f"),
-    *_distribution_rows("total", "total", ".1f"),
-    *_distribution_rows("stretch", "stretch", ".2f"),
-    ("over private-car bound", _overhead, ".0%", True),
-    ("waiting share of time", _wait_share, ".0%", True),
-    ("busiest car busy", lambda m: _busy(m, max), ".0%", None),
-    ("least busy car busy", lambda m: _busy(m, min), ".0%", None),
-    (
-        "busy spread (max - min)",
-        lambda m: _busy(m, max) - _busy(m, min) if m.elevators else None,
-        ".0%",
-        True,
-    ),
+    *_distribution_rows("wait", "wait"),
+    *_distribution_rows("total", "total"),
+    *_distribution_rows("stops", "stops"),
 ]
 
 # Headline rows for the summary against the first column.
-_HEADLINES = ("wait mean", "wait p95", "wait max", "total mean", "stretch mean")
+_HEADLINES = ("wait mean", "wait p95", "wait max", "total mean", "stops mean")
 
 
-def format_comparison(
-    runs: Sequence[tuple[str, RunMetrics]], seconds: Sequence[float] = ()
-) -> str:
+def format_comparison(runs: Sequence[tuple[str, RunMetrics]]) -> str:
     """Metrics side by side, one column per run. `*` marks the best value in
-    a row when the runs differ; ties all get it. The summary compares each
-    run with the first one."""
+    a row when the runs differ. The summary compares each run with the first
+    one."""
     names = [name for name, _ in runs]
     width = max(12, *(len(n) + 2 for n in names))
     label_width = max(len(label) for label, *_ in _COMPARISON_ROWS) + 2
@@ -131,9 +107,6 @@ def format_comparison(
         (label, [get(m) for _, m in runs], fmt, lower)
         for label, get, fmt, lower in _COMPARISON_ROWS
     ]
-    if seconds:
-        rows.append(("run time (s)", list(seconds), ".2f", True))
-
     lines = [
         f"Dispatch comparison ({runs[0][1].passengers} passengers)",
         "",
@@ -155,32 +128,16 @@ def format_comparison(
     return "\n".join(lines)
 
 
-# Rows shown per workload in the grid: the headline efficiency and fairness numbers.
-_GRID_ROWS = (
-    "delivered",
-    "wait mean",
-    "wait p95",
-    "wait max",
-    "total mean",
-    "stretch p95",
-    "over private-car bound",
-)
-
-
 def format_grid(grid: Mapping[str, Sequence[tuple[str, RunMetrics]]]) -> str:
-    """One block per workload with the headline rows, one column per run.
-    `*` marks the best value in each row, as in `format_comparison`."""
-    rows_by_label = {
-        label: (get, fmt, lower) for label, get, fmt, lower in _COMPARISON_ROWS
-    }
+    """One block per workload with the same rows as `format_comparison`, one
+    column per run. `*` marks the best value in each row."""
     names = [name for name, _ in next(iter(grid.values()))]
     width = max(12, *(len(n) + 2 for n in names))
-    label_width = max(len(label) for label in _GRID_ROWS) + 4
+    label_width = max(len(label) for label, *_ in _COMPARISON_ROWS) + 4
     lines = [" " * label_width + "".join(f"{n:>{width}}" for n in names)]
     for workload, runs in grid.items():
         lines += ["", f"{workload} ({runs[0][1].passengers} passengers)"]
-        for label in _GRID_ROWS:
-            get, fmt, lower = rows_by_label[label]
+        for label, get, fmt, lower in _COMPARISON_ROWS:
             values = [get(m) for _, m in runs]
             lines.append(
                 _render_row(f"  {label}", values, fmt, lower, label_width, width)

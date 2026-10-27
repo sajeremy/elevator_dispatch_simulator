@@ -12,8 +12,8 @@ Conventions:
 - **Time:** 1 tick = 1 floor of travel. The loop advances exactly one tick at a time, including idle stretches where no requests arrive. No event-driven clock jumping; event-driven simulation is noted as a scaling improvement.
 - **Input:** a list of requests (`time,id,source,dest`). No stream implementation. The scheduler must never see requests with `time > t`. This is enforced in one place, `RequestSource.arrivals_at(t)`, so swapping to a stream later is a one-class change.
 - **Destination dispatch:** each passenger is assigned to one elevator at request time. Assignment is permanent.
-- **Output:** (1) a positions CSV, one row per tick, starting at t=0: `time,e0,e1,...`; (2) end-of-run stats: min, max and average of wait and total time, plus p95, stretch, per-elevator utilization and any notable observations.
-- **Definitions:** wait = request time → pickup. Travel = pickup → drop-off. Total = wait + travel. Stretch = total ÷ |dest − source|.
+- **Output:** (1) a positions CSV, one row per tick, starting at t=0: `time,e0,e1,...`; (2) end-of-run stats per trip: wait, total time and intermediate stops, each as min, average, p95 and max. The single-run report adds per-elevator utilization and notable observations; comparison tables show the per-trip stats only.
+- **Definitions:** wait = request time → pickup. Travel = pickup → drop-off. Total = wait + travel. Intermediate stops = stops the rider's car makes between their boarding and alighting stops (a multi-tick stop counts once). A rider never moves away from their destination under LOOK, so with `stop_duration = 1`, travel = distance + 1 + intermediate stops; that is why travel and stretch are not reported separately.
 
 ## Architecture (layers; a layer calls only layers below it)
 

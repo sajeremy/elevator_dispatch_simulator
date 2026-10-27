@@ -57,9 +57,8 @@ class RunMetrics:
     ticks: int
     completed: bool
     wait: Distribution | None
-    travel: Distribution | None
     total: Distribution | None
-    stretch: Distribution | None
+    stops: Distribution | None  # intermediate stops per trip
     total_time_sum: int
     ideal_total_sum: int  # Level 1 bound summed over delivered passengers
     longest_wait: tuple[str, int] | None  # (passenger id, wait)
@@ -76,9 +75,8 @@ def compute_metrics(result: SimulationResult) -> RunMetrics:
         ticks=result.ticks,
         completed=result.completed,
         wait=summarize([p.wait for p in delivered]),
-        travel=summarize([p.travel for p in delivered]),
         total=summarize([p.total for p in delivered]),
-        stretch=summarize([p.stretch for p in delivered]),
+        stops=summarize([p.stops for p in delivered]),
         total_time_sum=sum(p.total for p in delivered),
         ideal_total_sum=sum(ideal_total(p.request, stop) for p in delivered),
         longest_wait=(worst.request.passenger_id, worst.wait) if worst else None,
