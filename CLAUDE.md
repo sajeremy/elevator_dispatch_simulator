@@ -89,11 +89,14 @@ Movement stays LOOK for every dispatcher comparison. SCAN is comparison-only.
 ## Benchmarks and metrics
 
 - **Level 1 bound (all workloads):** private elevator waiting at each origin, so ideal total = |dest − source| + stop_duration (the alighting stop; boarding happens at request time). Sample input: 105 floors + 3 stops = 108 ticks at `stop_duration = 1`.
-- **Level 2 bound (small workloads, ≤ ~12 passengers, 2–3 elevators):** offline-optimal dispatcher with perfect foresight under LOOK. Brute-force every assignment through `run_simulation` with `dispatch/fixed.py`. Bounds the best dispatcher under LOOK, not the best possible system.
+- **Level 2 bound (small workloads, up to 16 passengers, any number of cars):** offline-optimal dispatcher with perfect foresight under LOOK, in `benchmarks.py`. Cars never interact, so an assignment's cost is the sum of each car's cost on its own subset: simulate all 2^n subsets on one car, then combine them by dynamic programming over subsets (about k * 3^n steps). The same search gives the least possible max wait (the fairness bound). Every optimum is replayed through `run_simulation` with `dispatch/fixed.py` to confirm it, and tests check it against full brute force. Bounds the best dispatcher under LOOK, not the best possible system.
 - Round robin is a baseline, not an upper bound.
 - `gap_closed = (round_robin − algo) / (round_robin − offline_optimal)`.
 - Worst-case guarantee: LOOK reaches an assigned passenger within about `2 × (num_floors − 1)` ticks plus stop time (capacity can break this). Test it in `test_wait_bound.py`.
 - No-peek applies to the algorithm under test, not to the benchmark.
+- Tiny-case scenarios (`benchmarks.TINY_SCENARIOS`, 20 floors, 3 cars, 10 trips): light, burst, and burst with capacity 2, so the small cases still include congestion and full cars. Results are averaged over many seeds: ratio to optimum (mean, p95, worst), `gap_closed`, matched-optimum count, wins against ETD, and max wait above the fair optimum.
+- Large workloads use only the Level 1 bound. `experiments.compare_workloads` runs every dispatcher on `standard_workloads()` (office day, morning rush, evening rush, inter-floor, idle gap).
+- Commands: `python -m elevator_sim.benchmarks` (tiny cases vs optimum), `python -m elevator_sim.experiments` (all workloads).
 
 ## Design decisions
 
