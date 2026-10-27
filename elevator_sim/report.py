@@ -1,6 +1,6 @@
 """Plain-text summary of a run's metrics, and a side-by-side comparison of runs."""
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 
 from elevator_sim.metrics import Distribution, RunMetrics
 
@@ -139,11 +139,7 @@ def format_comparison(
         "",
         " " * label_width + "".join(f"{n:>{width}}" for n in names),
     ]
-    for label, values, fmt, lower in rows:
-        texts = ["-" if v is None else format(v, fmt) for v in values]
-        best = _best(values, texts, lower)
-        cells = [f"{t + ('*' if t == best else ' '):>{width}}" for t in texts]
-        lines.append(f"{label:<{label_width}}" + "".join(cells))
+    lines += [_render_row(*row, label_width, width) for row in rows]
 
     if len(runs) > 1:
         base_name = names[0]
@@ -157,6 +153,53 @@ def format_comparison(
                     parts.append(f"{label} {after / before - 1:+.0%}")
             lines.append(f"  {name}: " + ", ".join(parts))
     return "\n".join(lines)
+
+
+# Rows shown per workload in the grid: the headline efficiency and fairness numbers.
+_GRID_ROWS = (
+    "delivered",
+    "wait mean",
+    "wait p95",
+    "wait max",
+    "total mean",
+    "stretch p95",
+    "over private-car bound",
+)
+
+
+def format_grid(grid: Mapping[str, Sequence[tuple[str, RunMetrics]]]) -> str:
+    """One block per workload with the headline rows, one column per run.
+    `*` marks the best value in each row, as in `format_comparison`."""
+    rows_by_label = {
+        label: (get, fmt, lower) for label, get, fmt, lower in _COMPARISON_ROWS
+    }
+    names = [name for name, _ in next(iter(grid.values()))]
+    width = max(12, *(len(n) + 2 for n in names))
+    label_width = max(len(label) for label in _GRID_ROWS) + 4
+    lines = [" " * label_width + "".join(f"{n:>{width}}" for n in names)]
+    for workload, runs in grid.items():
+        lines += ["", f"{workload} ({runs[0][1].passengers} passengers)"]
+        for label in _GRID_ROWS:
+            get, fmt, lower = rows_by_label[label]
+            values = [get(m) for _, m in runs]
+            lines.append(
+                _render_row(f"  {label}", values, fmt, lower, label_width, width)
+            )
+    return "\n".join(lines)
+
+
+def _render_row(
+    label: str,
+    values: list[float | None],
+    fmt: str,
+    lower: bool | None,
+    label_width: int,
+    width: int,
+) -> str:
+    texts = ["-" if v is None else format(v, fmt) for v in values]
+    best = _best(values, texts, lower)
+    cells = [f"{t + ('*' if t == best else ' '):>{width}}" for t in texts]
+    return f"{label:<{label_width}}" + "".join(cells)
 
 
 def _best(
