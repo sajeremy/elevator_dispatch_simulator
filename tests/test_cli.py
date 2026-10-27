@@ -46,6 +46,7 @@ def test_without_dispatch_compares_every_strategy(tmp_path):
     result = runner.invoke(app, [*SAMPLE_BUILDING, "--positions-log", str(log)])
     assert result.exit_code == 0, result.output
     assert "Dispatch comparison (3 passengers)" in result.output
+    assert "Observations" in result.output
     for strategy in DispatchStrategy:
         assert strategy.value in result.output
         assert (tmp_path / f"positions_{strategy.value}.csv").is_file()
