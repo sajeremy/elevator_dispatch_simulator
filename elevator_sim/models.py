@@ -41,7 +41,11 @@ class ElevatorRequest(BaseModel):
 
     @property
     def direction(self) -> Direction:
-        return Direction.UP if self.destination_floor > self.source_floor else Direction.DOWN
+        return (
+            Direction.UP
+            if self.destination_floor > self.source_floor
+            else Direction.DOWN
+        )
 
     @property
     def distance(self) -> int:

@@ -12,14 +12,14 @@ Conventions:
 - **Time:** 1 tick = 1 floor of travel. The loop advances exactly one tick at a time, including idle stretches where no requests arrive. No event-driven clock jumping; event-driven simulation is noted as a scaling improvement.
 - **Input:** a list of requests (`time,id,source,dest`). No stream implementation. The scheduler must never see requests with `time > t`. This is enforced in one place, `RequestSource.arrivals_at(t)`, so swapping to a stream later is a one-class change.
 - **Destination dispatch:** each passenger is assigned to one elevator at request time. Assignment is permanent.
-- **Output:** (1) a positions CSV, one row per tick, starting at t=0: `time,e0,e1,...`; (2) a passenger CSV, one row per passenger (`id,elevator,request_time,source,dest,pickup_time,dropoff_time,wait,travel,total,stops,left_behind`, blank times if the run ended first); (3) end-of-run stats per trip: wait, total time and intermediate stops, each as min, average, p95 and max, plus capacity pressure (max load, car-ticks full, departures that left a same-direction pickup behind) and the deadhead share of moving ticks. The single-run report adds per-elevator utilization and notable observations; comparison tables show the per-trip stats and the capacity rows.
+- **Output:** (1) a positions CSV, one row per tick, starting at t=0: `time,e0,e1,...`; (2) a passenger CSV, one row per passenger (`id,elevator,request_time,source,dest,pickup_time,dropoff_time,wait,travel,total,stops,left_behind`, blank times if the run ended first); (3) end-of-run stats per trip: wait and total time as min, mean, p95 and max, intermediate stops as a mean, plus capacity pressure (max load, car-ticks full, departures that left a same-direction pickup behind) and the deadhead share of moving ticks. Every command prints the same table: rows grouped under the three objectives (serve every request; minimize total time; honor capacity and direction, which reads "held" or "VIOLATED" from the live max-load and wrong-way counts) plus a Fleet line, one column per dispatcher, `*` on the best dispatcher in ranked rows (the minima are reported, not ranked). The benchmark adds an `optimum` column and two `total / optimum` rows (mean, worst). Wrong-way travel is a LOOK property and never separates dispatchers, so it is a pass/fail check, not a comparison row.
 - **Definitions:** wait = request time → pickup. Travel = pickup → drop-off. Total = wait + travel. Intermediate stops = stops the rider's car makes between their boarding and alighting stops (a multi-tick stop counts once). A rider never moves away from their destination under LOOK, so with `stop_duration = 1`, travel = distance + 1 + intermediate stops; that is why travel and stretch are not reported separately.
 
 ## Architecture (layers; a layer calls only layers below it)
 
 | Layer | Modules | Role |
 |---|---|---|
-| 6 Experiments & CLI | `cli.py`, `experiments.py`, `benchmarks.py` | Build configs, run grids, compare results |
+| 6 Commands | `cli.py`, `experiments.py`, `benchmarks.py`, `viz.py` | Three commands (`run`, `compare`, `benchmark`), the strategy comparison, the offline optimum, two charts |
 | 5 Configuration | `config.py`, `registry.py` | `SimulationConfig` (frozen, validated); registry maps enums → strategy classes |
 | 4 Core | `simulation.py` | Tick loop; single entry point `run_simulation(requests, config)`; only code that mutates state |
 | 3 Strategies | `dispatch/`, `movement/` | Pluggable. Dispatcher = which car; MovementPolicy = where next |
@@ -33,16 +33,21 @@ Boundaries:
 - Per-car rules live in `physics.step`. The simulation applies it to live state; the ETD dispatcher applies it to private copies rebuilt from views, so predictions and the real run share one set of physics. The boarding rule (`physics.boarding`) is also what LOOK consults to decide whether a stop is worth making, so the movement policy never stops where nobody can board.
 - Recorder and metrics observe; they never change state.
 - CLI runs, experiments and benchmarks all go through `run_simulation`, so every comparison uses the same physics and tick order.
-- Without `--dispatch`, the CLI compares every registered strategy: `experiments.compare` runs each in its own process (same input, same config apart from `dispatch`) and `report.format_comparison` prints the metrics side by side, writing one positions log per strategy (`elevator_positions_<strategy>.csv`). One `--dispatch` value gives the single-run report.
+- `compare` runs every registered strategy in its own process (`experiments.compare`: same input, same config apart from `dispatch`) and prints them side by side with `report.format_table`, writing one positions and one passenger log per strategy (`positions_<strategy>.csv`, `passengers_<strategy>.csv`). `run` prints one column; `benchmark` prints one table per tiny scenario with the optimum as a reference column. Every command writes its chart next to its logs in `--out`.
 
 Interfaces:
 
 ```python
 class Dispatcher(Protocol):
-    def assign(self, request: ElevatorRequest, elevators: Sequence[ElevatorView], t: int) -> int: ...
+    def assign(
+        self, request: ElevatorRequest, elevators: Sequence[ElevatorView], t: int
+    ) -> int: ...
+
 
 class MovementPolicy(Protocol):
-    def next_action(self, elevator: ElevatorView) -> Action: ...  # UP | DOWN | STOP | IDLE
+    def next_action(
+        self, elevator: ElevatorView
+    ) -> Action: ...  # UP | DOWN | STOP | IDLE
 ```
 
 ## Tick order
@@ -64,46 +69,46 @@ class DispatchStrategy(StrEnum):
     NEAREST_CAR = "nearest_car"
     ETD = "etd"  # each member is added together with its registry entry
 
+
 class SimulationConfig(BaseModel):  # frozen
-    """Floors are 1-indexed: floor 1 is the lobby."""
-    num_floors: int = 60            # >= 2 (a request needs two distinct floors)
-    num_elevators: int = 4          # >= 1
-    capacity: int = 12              # >= 1
-    start_floor: int = 1            # where every car starts; 1 <= start_floor <= num_floors
-    stop_duration: int = 1          # >= 1 ticks per stop (doors, boarding, alighting)
-    dispatch: DispatchStrategy = DispatchStrategy.ROUND_ROBIN
-    max_ticks: int = 100_000        # >= 1 safety cap
+    """Floors are 1-indexed: floor 1 is the lobby. Defaults are the office-day building."""
+
+    num_floors: int = 40  # >= 2 (a request needs two distinct floors)
+    num_elevators: int = 8  # >= 1
+    capacity: int = 16  # >= 1
+    start_floor: int = 1  # where every car starts; 1 <= start_floor <= num_floors
+    stop_duration: int = 1  # >= 1 ticks per stop (doors, boarding, alighting)
+    dispatch: DispatchStrategy = DispatchStrategy.ETD
+    max_ticks: int = 100_000  # >= 1 safety cap
 ```
 
-Not in config: output paths (the CLI writes the positions log from `result.positions`, so `run_simulation` does no file I/O), workload seed and traffic shape (`workloads.py`), the request data, per-strategy tuning (constructor args).
+Not in config: output paths (the CLI writes the logs and the chart from the result, so `run_simulation` does no file I/O), workload seed and traffic shape (`workloads.py`), the request data, and per-strategy tuning (there is none: ETD has no knobs).
 Requires Python 3.14+ (matches `pyproject.toml` and `.python-version`).
 
 ## Scope and build order
 
 1. Core loop + round robin + LOOK, end to end on the sample input. Correct positions log and stats.
-2. ETD (estimated time to destination) dispatcher (headline): pick the elevator with the smallest marginal increase in total wait + travel for its passengers, by simulating that car's LOOK route with and without the new passenger. Optional knobs: weight wait over travel; fairness penalty on max wait.
+2. ETD (estimated time to destination) dispatcher (headline): pick the elevator whose summed remaining time to destination, over everyone it is responsible for, grows least, by simulating that car's LOOK route with and without the new passenger. A convex cost on cumulative wait (a fairness lever) was tried and removed: it barely moved the tail on the office day, because the tail is set by LOOK's sweep geometry rather than by the choice of car; the README records the measurement.
 3. Direction-aware nearest car (middle comparison): fewest floors to reach the caller from each car's position, direction and sweep end; ignores stops, load and delay to others.
 4. Zone-based, if time allows; otherwise listed as future work.
 Movement stays LOOK for every dispatcher comparison. SCAN is comparison-only.
 
 ## Benchmarks and metrics
 
-- **Level 1 bound (all workloads):** private elevator waiting at each origin, so ideal total = |dest − source| + stop_duration (the alighting stop; boarding happens at request time). Sample input: 105 floors + 3 stops = 108 ticks at `stop_duration = 1`.
-- **Level 2 bound (small workloads, up to 16 passengers, any number of cars):** offline-optimal dispatcher with perfect foresight under LOOK, in `benchmarks.py`. Cars never interact, so an assignment's cost is the sum of each car's cost on its own subset: simulate all 2^n subsets on one car, then combine them by dynamic programming over subsets (about k * 3^n steps). The same search gives the least possible max wait (the fairness bound). Every optimum is replayed through `run_simulation` with `dispatch/fixed.py` to confirm it, and tests check it against full brute force. Bounds the best dispatcher under LOOK, not the best possible system.
+- **Offline optimum (small workloads, up to 16 passengers, any number of cars):** offline-optimal dispatcher with perfect foresight under LOOK, in `benchmarks.py`. Cars never interact, so an assignment's cost is the sum of each car's cost on its own subset: simulate all 2^n subsets on one car, then combine them by dynamic programming over subsets (about k * 3^n steps). Every optimum is replayed through `run_simulation` with `dispatch/fixed.py` to confirm it, and tests check it against full brute force. Bounds the best dispatcher under LOOK, not the best possible system.
 - Round robin is a baseline, not an upper bound.
-- `gap_closed = (round_robin − algo) / (round_robin − offline_optimal)`.
 - Worst-case guarantee: LOOK reaches an assigned passenger within about `2 × (num_floors − 1)` ticks plus stop time (capacity can break this). Test it in `test_wait_bound.py`.
 - No-peek applies to the algorithm under test, not to the benchmark.
-- Tiny-case scenarios (`benchmarks.TINY_SCENARIOS`, 20 floors, 3 cars, 10 trips): light, burst, and burst with capacity 2, so the small cases still include congestion and full cars. Results are averaged over many seeds: ratio to optimum (mean, p95, worst), `gap_closed`, matched-optimum count, wins against ETD, and max wait above the fair optimum.
-- Large workloads use only the Level 1 bound. `experiments.compare_workloads` runs every dispatcher on `standard_workloads()` (office day, morning rush, evening rush, inter-floor, idle gap).
-- Commands: `python -m elevator_sim.benchmarks` (tiny cases vs optimum), `python -m elevator_sim.experiments` (all workloads).
+- Tiny-case scenarios (`benchmarks.TINY_SCENARIOS`, 20 floors, 3 cars, 10 trips): light, burst, and burst with capacity 2, so the small cases still include congestion and full cars. Results are averaged over many seeds: the shared table's rows, with the optimum's replay as a reference column, plus the ratio to optimum (mean, worst).
+- Large workloads have no optimum; `compare` reports them on the shared table only.
+- Commands: `python -m elevator_sim run` (one dispatcher, ETD by default), `compare` (every dispatcher), `benchmark` (tiny cases vs optimum). Each writes its logs and chart to `--out` (matplotlib, installed by default via the `viz` dependency group).
 
 ## Design decisions
 
 1. **Capacity vs. immediate assignment:** physics boards up to capacity, oldest request first. Passengers left behind keep their assigned car and stay a pickup target, so the car comes back for them. Assignment stays permanent. Reserving capacity at assignment is rejected as too conservative, because riders alight along the route. ETD accounts for capacity by simulating the route; round robin ignores it.
    **Seat reservation (no overtaking):** a car departing floor f in direction d boards at most `capacity − load − reserved`, where `reserved` counts its own waiting passengers older than the boarding candidate that lie ahead in d and travel in d. Without it, boarding was FIFO per floor only, and a rider upstream of a busy origin was passed by a full car on every trip until the stream of newer passengers stopped (1,196 ticks in a probe): "nobody starves" held only because the input is finite. With it, a passenger who is the oldest still waiting for their car boards within one sweep (about `2 × (num_floors − 1)` floors) if the car has a free seat at that moment, else within three legs (the car first finishes the leg it is full for). Under saturation waits still grow with the car's queue; the rule guarantees order, not speed. Cost: a seat may ride empty for a few floors; on the office day at capacity 16 the headline numbers did not change. LOOK counts seats freed by riders alighting at the current floor, so a full car that empties at a floor boards there in the same stop instead of stopping twice.
 2. **Direction rule at pickup:** at a stop, alight first, then LOOK sets the direction (continue if targets lie ahead, else reverse, else idle), then board waiting passengers whose direction matches. A car moving through floor f stops there for a drop-off, a same-direction pickup that can board (a free, unreserved seat once riders for f have alighted), or an opposite-direction pickup when f is the last target of the sweep (the turnaround).
-3. **Same-tick ties:** stable sort by time, keeping input-file order within a tick (not by id: `passenger10` sorts before `passenger2`). Elevator ties go to the lowest index. Boarding under limited capacity is FIFO by request time, then file order.
+3. **Same-tick ties:** stable sort by time, keeping input-file order within a tick (not by id: `passenger10` sorts before `passenger2`). Elevator ties rotate (`dispatch/base.py: RotatingTies`): among equally good cars, the first after the one picked last, so idle cars waiting together at the lobby share a crowd; lowest-index ties had sent every lobby caller to e0 under nearest car. Round robin needs no tie-break. Boarding under limited capacity is FIFO by request time, then file order, within the seats not reserved for older passengers ahead.
 4. **Input validation:** fail fast with an error naming the row for `source == dest`, duplicate ids and negative times. Input that conflicts with the config is checked where the config is known (building the source), not in `ElevatorRequest`: floors outside `[1, num_floors]` and arrivals at or after `max_ticks`. These errors report every offending row at once and the setting that would fit. Unsorted input is sorted by time; no-peek lives in `arrivals_at(t)`, not in file order. A stream could not sort, so it would need a late-arrival policy.
 5. **Cross-zone trips:** deferred until zone dispatch exists. If built, zones are a dispatch preference only (every car reaches every floor); assign by the non-lobby endpoint's zone; a trip spanning two zones falls back to ETD across all cars.
 6. **Stop cost:** a stop takes `stop_duration >= 1` ticks; a car never stops and moves in the same tick. Alighting and boarding at one floor share one stop.
@@ -111,13 +116,13 @@ Movement stays LOOK for every dispatcher comparison. SCAN is comparison-only.
 
 ## Key tests
 
-`test_elevator_requests.py` (no-peek), `test_look.py`, `test_capacity.py`, `test_starvation.py` (seat reservation: no overtaking), `test_wait_bound.py` (bounds at capacity 2, 4 and 1,000), `test_metrics.py` (hand-computed sample input and a hand-traced capacity case).
+`test_elevator_requests.py` (no-peek), `test_look.py`, `test_capacity.py`, `test_starvation.py` (seat reservation: no overtaking), `test_wait_bound.py` (bounds at capacity 2, 4 and 1,000), `test_metrics.py` (hand-computed sample input and a hand-traced capacity case), `test_report.py` (one table: rows grouped by objective, stars, reference column, seed averages), `test_etd.py` (predictions match the run; the cost is the remaining time to destination), `test_viz.py` (both charts render from results), `test_cli.py` (the three commands and their files).
 
 ## Workloads
 
 Seeded generators: morning rush (lobby up), evening rush (down to lobby), random inter-floor traffic, long idle gap.
 
-`workloads.office_day` combines them into one day (40 floors, ~1,400 occupants, 07:00–20:00 at 40 ticks per minute). Its output is committed as `data/office_day.csv`; a test keeps the file in sync with the generator. It is the CLI's default input, and the CLI's defaults match it: 40 floors, 8 cars, capacity 16. `SimulationConfig`'s own defaults are unchanged.
+`workloads.office_day` combines them into one day (40 floors, ~1,400 occupants, 07:00–20:00 at 40 ticks per minute). Its output is committed as `data/office_day.csv`; a test keeps the file in sync with the generator. It is the CLI's default input, and `SimulationConfig`'s defaults are its building (40 floors, 8 cars, capacity 16), so the CLI inherits them.
 
 ## Time budget
 

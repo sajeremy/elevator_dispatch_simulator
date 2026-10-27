@@ -52,7 +52,9 @@ class LookPolicy:
         else:
             departing = Direction.IDLE
 
-        if f in elevator.dropoffs or (departing is not Direction.IDLE and pickup_here(departing)):
+        if f in elevator.dropoffs or (
+            departing is not Direction.IDLE and pickup_here(departing)
+        ):
             return Action.stop(departing)
         if departing is Direction.IDLE:
             return Action.idle()

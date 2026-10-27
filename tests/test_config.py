@@ -1,11 +1,17 @@
 import pytest
 from pydantic import ValidationError
 
-from elevator_sim.config import SimulationConfig
+from elevator_sim.config import DispatchStrategy, SimulationConfig
 
 
 def test_defaults_are_valid():
     SimulationConfig()
+
+
+def test_defaults_are_the_office_day_building():
+    c = SimulationConfig()
+    assert (c.num_floors, c.num_elevators, c.capacity) == (40, 8, 16)
+    assert c.dispatch is DispatchStrategy.ETD
 
 
 @pytest.mark.parametrize(

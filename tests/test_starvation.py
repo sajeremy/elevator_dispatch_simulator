@@ -3,13 +3,19 @@ its own, waiting ahead and going the same way, would be left without a seat.
 Without it, a rider upstream of a busy origin is passed every time the car
 fills there and waits until the stream of newer passengers dries up."""
 
-from elevator_sim.config import SimulationConfig
+from elevator_sim.config import DispatchStrategy, SimulationConfig
 from elevator_sim.simulation import run_simulation
 from tests.helpers import requests
 
 
 def config(**overrides) -> SimulationConfig:
-    return SimulationConfig(num_floors=10, num_elevators=1, **overrides)
+    # One car: the dispatcher has no choice, so round robin keeps the test fast.
+    return SimulationConfig(
+        num_floors=10,
+        num_elevators=1,
+        dispatch=DispatchStrategy.ROUND_ROBIN,
+        **overrides,
+    )
 
 
 def by_id(result):

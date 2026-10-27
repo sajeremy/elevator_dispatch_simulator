@@ -9,7 +9,9 @@ class RoundRobinDispatcher:
     def __init__(self) -> None:
         self._turn = 0
 
-    def assign(self, request: ElevatorRequest, elevators: Sequence[ElevatorView], t: int) -> int:
+    def assign(
+        self, request: ElevatorRequest, elevators: Sequence[ElevatorView], t: int
+    ) -> int:
         index = self._turn % len(elevators)
         self._turn += 1
         return index

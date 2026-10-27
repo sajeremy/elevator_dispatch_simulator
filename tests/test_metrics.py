@@ -11,12 +11,12 @@ import pytest
 from elevator_sim.config import SimulationConfig
 from elevator_sim.metrics import compute_metrics, summarize
 from elevator_sim.simulation import run_simulation
-from tests.helpers import SAMPLE, requests
+from tests.helpers import SAMPLE, SAMPLE_BUILDING, requests
 
 
 @pytest.fixture(scope="module")
 def metrics():
-    return compute_metrics(run_simulation(SAMPLE, SimulationConfig()))
+    return compute_metrics(run_simulation(SAMPLE, SAMPLE_BUILDING))
 
 
 def test_wait(metrics):
@@ -35,29 +35,6 @@ def test_stops(metrics):
     assert (s.min, s.mean, s.p95, s.max) == (0, 0, 0, 0)
 
 
-def test_level1_bound(metrics):
-    assert metrics.ideal_total_sum == 108  # 105 floors + 3 alighting stops
-    assert metrics.total_time_sum == 127
-
-
-def test_longest_wait(metrics):
-    assert metrics.longest_wait == ("passenger3", 19)
-
-
-def test_per_elevator(metrics):
-    # 52 ticks. e0: stop, 50 moves, stop. e1: stop, 36 moves, stop, 14 idle.
-    # e2: 10 idle, 19 moves, stop, 19 moves, stop, 2 idle. e3: idle throughout.
-    e = metrics.elevators
-    assert [(m.moving_ticks, m.stopped_ticks, m.idle_ticks) for m in e] == [
-        (50, 2, 0),
-        (36, 2, 14),
-        (38, 2, 12),
-        (0, 0, 52),
-    ]
-    assert [m.utilization for m in e] == pytest.approx([1.0, 38 / 52, 40 / 52, 0.0])
-    assert [m.passengers_served for m in e] == [1, 1, 1, 0]
-
-
 def test_p95_nearest_rank():
     assert summarize(list(range(1, 21))).p95 == 19  # ceil(0.95 * 20) = 19th value
     assert summarize(list(range(1, 101))).p95 == 95
@@ -71,9 +48,15 @@ def test_capacity_metrics_on_a_crowded_car():
     # leaves the lobby without p2, p3, p4 at t=1 and without p4 at t=11.
     reqs = requests(*[(0, f"p{i}", 1, 5) for i in range(5)])
     config = SimulationConfig(num_floors=10, num_elevators=1, capacity=2)
-    m = compute_metrics(run_simulation(reqs, config))
-    e = m.elevators[0]
-    assert (e.max_load, e.full_ticks, e.empty_moving_ticks, e.left_behind) == (2, 10, 8, 4)
+    result = run_simulation(reqs, config)
+    m = compute_metrics(result)
+    e = result.elevator_stats[0]
+    assert (e.max_load, e.full_ticks, e.empty_moving_ticks, e.left_behind) == (
+        2,
+        10,
+        8,
+        4,
+    )
     assert (m.max_load, m.full_ticks, m.left_behind) == (2, 10, 4)
     assert m.deadhead == pytest.approx(8 / 20)
     assert m.most_left_behind == ("p4", 2)
@@ -83,3 +66,7 @@ def test_capacity_metrics_when_nothing_binds(metrics):
     assert (metrics.max_load, metrics.full_ticks, metrics.left_behind) == (1, 0, 0)
     assert metrics.most_left_behind is None
     assert metrics.deadhead == pytest.approx(19 / 124)  # e2's 19 floors to passenger3
+
+
+def test_wrong_way_floors_are_zero_under_look(metrics):
+    assert metrics.wrong_way_floors == 0

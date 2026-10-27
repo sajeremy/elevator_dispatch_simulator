@@ -1,10 +1,16 @@
-from elevator_sim.config import SimulationConfig
+from elevator_sim.config import DispatchStrategy, SimulationConfig
 from elevator_sim.simulation import run_simulation
 from tests.helpers import requests
 
 
 def config(**overrides) -> SimulationConfig:
-    return SimulationConfig(num_floors=10, num_elevators=1, **overrides)
+    # One car: the dispatcher has no choice, so round robin keeps the test fast.
+    return SimulationConfig(
+        num_floors=10,
+        num_elevators=1,
+        dispatch=DispatchStrategy.ROUND_ROBIN,
+        **overrides,
+    )
 
 
 def test_never_exceeds_capacity_and_leftovers_wait_for_the_same_car():

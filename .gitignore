@@ -8,5 +8,8 @@ wheels/
 
 # Virtual environments
 .venv
+
+# Logs and charts written by the CLI (and logs from the earlier CLI)
+results/
 elevator_positions*.csv
 elevator_passengers*.csv

@@ -10,7 +10,9 @@ def req(time: int, pid: str, source: int, dest: int) -> ElevatorRequest:
 
 
 def test_never_releases_a_request_before_its_time():
-    source = RequestSource([req(0, "a", 1, 5), req(3, "b", 2, 1), req(3, "c", 4, 9)], 10)
+    source = RequestSource(
+        [req(0, "a", 1, 5), req(3, "b", 2, 1), req(3, "c", 4, 9)], 10
+    )
     assert [r.passenger_id for r in source.arrivals_at(0)] == ["a"]
     assert source.arrivals_at(1) == []
     assert source.arrivals_at(2) == []
@@ -26,7 +28,8 @@ def test_each_request_is_released_once():
 
 def test_unsorted_input_is_sorted_and_ties_keep_input_order():
     source = RequestSource(
-        [req(5, "late", 1, 2), req(0, "x", 1, 2), req(0, "y", 3, 2), req(0, "z", 2, 3)], 10
+        [req(5, "late", 1, 2), req(0, "x", 1, 2), req(0, "y", 3, 2), req(0, "z", 2, 3)],
+        10,
     )
     assert [r.passenger_id for r in source.arrivals_at(0)] == ["x", "y", "z"]
     assert source.arrivals_at(4) == []
@@ -57,7 +60,9 @@ def test_rejects_floors_outside_building():
 
 def test_floor_error_reports_every_offender_and_the_floors_needed():
     reqs = [req(0, "a", 1, 11), req(1, "b", 2, 3), req(2, "c", 14, 1)]
-    with pytest.raises(ValueError, match=r"2 request\(s\).*first 'a', highest floor 14.*at least 14"):
+    with pytest.raises(
+        ValueError, match=r"2 request\(s\).*first 'a', highest floor 14.*at least 14"
+    ):
         RequestSource(reqs, 10)
 
 
@@ -82,7 +87,9 @@ def test_load_csv(tmp_path):
     path = tmp_path / "r.csv"
     path.write_text("time,id,source,dest\n0,passenger1,1,51\n10,passenger3,20,1\n")
     requests = load_requests_csv(path)
-    assert [(r.time, r.passenger_id, r.source_floor, r.destination_floor) for r in requests] == [
+    assert [
+        (r.time, r.passenger_id, r.source_floor, r.destination_floor) for r in requests
+    ] == [
         (0, "passenger1", 1, 51),
         (10, "passenger3", 20, 1),
     ]

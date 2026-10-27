@@ -37,9 +37,21 @@ def test_idle_cars_nearest_wins():
     assert etd().assign(request(28, 2), cars, t=0) == 1
 
 
-def test_ties_go_to_the_lowest_index():
-    cars = [car(0, 5), car(1, 5)]
-    assert etd().assign(request(10, 2), cars, t=0) == 0
+def test_ties_rotate_through_the_cars():
+    cars = [car(0, 5), car(1, 5), car(2, 5)]
+    dispatcher = etd()
+    picks = [dispatcher.assign(request(10, 2), cars, t=0) for _ in range(4)]
+    assert picks == [0, 1, 2, 0]
+
+
+def test_route_cost_is_remaining_time_to_destination_for_everyone():
+    # Car at 10 going up with a rider for 20, seen at t=5: the rider alights at t=15.
+    busy = car(0, 10, UP, dropoffs=[20])
+    assert etd().route_cost(busy, t=5) == 10
+    # Add a trip 12 -> 18 requested at t=0: boards t=7, alights t=14, and the
+    # rider now alights at t=17. The five ticks already waited are not counted.
+    extra = pickup_view(request(12, 18, time=0))
+    assert etd().route_cost(busy, t=5, extra=extra) == (14 - 5) + (17 - 5)
 
 
 def test_marginal_cost_counts_delay_to_existing_riders():
@@ -53,23 +65,13 @@ def test_marginal_cost_counts_delay_to_existing_riders():
     assert etd().assign(request(12, 18), [busy, car(1, 1)], t=0) == 0
 
 
-def test_wait_weight_trades_rider_delay_for_shorter_waits():
-    # car0 is one floor away but carries 5 riders the stops would delay;
-    # car1 is idle 10 floors away.
-    crowded = car(0, 10, UP, dropoffs=[30] * 5)
-    cars = [crowded, car(1, 1)]
-    short_trip = request(11, 12)
-    # wait_weight 1: car0 = 1 + 2 + 5 riders x 2 stops = 13; car1 = 10 + 2 = 12.
-    assert etd(wait_weight=1.0).assign(short_trip, cars, t=0) == 1
-    # wait_weight 2: car0 = 2 + 2 + 10 = 14; car1 = 20 + 2 = 22.
-    assert etd(wait_weight=2.0).assign(short_trip, cars, t=0) == 0
-
-
 def test_prediction_respects_capacity():
     full = ElevatorView(
         index=0, floor=1, direction=IDLE, load=1, capacity=1, dropoffs=(5,), pickups=()
     )
-    new = PickupView(floor=1, destination_floor=3, direction=UP, request_time=0, arrival_order=0)
+    new = PickupView(
+        floor=1, destination_floor=3, direction=UP, request_time=0, arrival_order=0
+    )
     trips = etd().predict(full, t=0, extra=new)
     # Can't board at floor 1 while full: rides to 5, comes back for the new passenger.
     rider, passenger = trips
@@ -102,8 +104,12 @@ def test_last_prediction_per_car_matches_the_run_exactly(seed, capacity):
     reqs = []
     for i in range(60):
         source, dest = rng.sample(range(1, 21), 2)
-        reqs.append(ElevatorRequest.from_tuple((rng.randrange(120), f"p{i}", source, dest)))
-    config = SimulationConfig(num_floors=20, num_elevators=3, capacity=capacity, stop_duration=2)
+        reqs.append(
+            ElevatorRequest.from_tuple((rng.randrange(120), f"p{i}", source, dest))
+        )
+    config = SimulationConfig(
+        num_floors=20, num_elevators=3, capacity=capacity, stop_duration=2
+    )
     spy = RecordingEtd(etd(stop_duration=2, num_floors=20))
     result = run_simulation(reqs, config, dispatcher=spy)
     assert result.completed
@@ -114,7 +120,19 @@ def test_last_prediction_per_car_matches_the_run_exactly(seed, capacity):
         waiting = [trip for trip in trips if trip.arrival_order is not None]
         for trip in waiting:
             actual = by_order[trip.arrival_order]
-            assert (trip.pickup, trip.dropoff) == (actual.pickup_time, actual.dropoff_time)
+            assert (trip.pickup, trip.dropoff) == (
+                actual.pickup_time,
+                actual.dropoff_time,
+            )
         riders_then = [p for p in mine if p.pickup_time < t <= p.dropoff_time]
-        predicted_rider_dropoffs = sorted(trip.dropoff for trip in trips if trip.pickup is None)
+        predicted_rider_dropoffs = sorted(
+            trip.dropoff for trip in trips if trip.pickup is None
+        )
         assert predicted_rider_dropoffs == sorted(p.dropoff_time for p in riders_then)
+
+
+def test_route_longer_than_the_horizon_is_a_value_error():
+    # The horizon is the run's max_ticks: a cap too small for a route is a
+    # config-versus-input conflict, reported like any other bad setting.
+    with pytest.raises(ValueError, match="exceeds 3 ticks"):
+        etd(horizon=3).predict(car(0, 1, UP, dropoffs=[20]), t=0)

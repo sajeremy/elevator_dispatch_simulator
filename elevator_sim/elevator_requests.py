@@ -46,7 +46,9 @@ def _check_fits_config(
     outside = [
         r
         for r in requests
-        if not (1 <= r.source_floor <= num_floors and 1 <= r.destination_floor <= num_floors)
+        if not (
+            1 <= r.source_floor <= num_floors and 1 <= r.destination_floor <= num_floors
+        )
     ]
     if outside:
         highest = max(max(r.source_floor, r.destination_floor) for r in outside)
@@ -121,4 +123,6 @@ def write_requests_csv(requests: Iterable[ElevatorRequest], path: str | Path) ->
         writer = csv.writer(f)
         writer.writerow(CSV_FIELDS)
         for r in requests:
-            writer.writerow((r.time, r.passenger_id, r.source_floor, r.destination_floor))
+            writer.writerow(
+                (r.time, r.passenger_id, r.source_floor, r.destination_floor)
+            )

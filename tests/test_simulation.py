@@ -5,11 +5,11 @@ import pytest
 from elevator_sim.config import DispatchStrategy, SimulationConfig
 from elevator_sim.recorder import write_passengers_csv
 from elevator_sim.simulation import run_simulation
-from tests.helpers import SAMPLE, requests
+from tests.helpers import SAMPLE, SAMPLE_BUILDING, requests
 
 
 def config(**overrides) -> SimulationConfig:
-    return SimulationConfig(**overrides)
+    return SAMPLE_BUILDING.model_copy(update=overrides)
 
 
 def by_id(result):
@@ -31,6 +31,19 @@ def test_sample_input_hand_traced():
     assert result.completed
     assert result.ticks == 52  # t = 0..51
     assert [s.passengers_served for s in result.elevator_stats] == [1, 1, 1, 0]
+
+
+def test_sample_per_car_activity():
+    # 52 ticks. e0: stop, 50 moves, stop. e1: stop, 36 moves, stop, 14 idle.
+    # e2: 10 idle, 19 moves, stop, 19 moves, stop, 2 idle. e3: idle throughout.
+    stats = run_simulation(SAMPLE, config()).elevator_stats
+    assert [(s.moving_ticks, s.stopped_ticks, s.idle_ticks) for s in stats] == [
+        (50, 2, 0),
+        (36, 2, 14),
+        (38, 2, 12),
+        (0, 0, 52),
+    ]
+    assert [s.passengers_served for s in stats] == [1, 1, 1, 0]
 
 
 def test_positions_log_one_row_per_tick_from_zero(tmp_path):
@@ -64,7 +77,9 @@ def test_max_ticks_stops_the_run():
 
 
 def test_stop_duration_holds_the_car():
-    result = run_simulation(requests((0, "a", 1, 3)), config(num_elevators=1, stop_duration=3))
+    result = run_simulation(
+        requests((0, "a", 1, 3)), config(num_elevators=1, stop_duration=3)
+    )
     a = by_id(result)["a"]
     # Boarding stop t=0..2, moves t=3..4, alighting stop starts t=5.
     assert (a.pickup_time, a.dropoff_time) == (0, 5)
@@ -125,11 +140,47 @@ def test_passengers_log_one_row_per_passenger(tmp_path):
     write_passengers_csv(result.passengers, path)
     rows = list(csv.reader(path.open()))
     assert rows[0] == [
-        "id", "elevator", "request_time", "source", "dest",
-        "pickup_time", "dropoff_time", "wait", "travel", "total", "stops", "left_behind",
+        "id",
+        "elevator",
+        "request_time",
+        "source",
+        "dest",
+        "pickup_time",
+        "dropoff_time",
+        "wait",
+        "travel",
+        "total",
+        "stops",
+        "left_behind",
     ]
-    assert rows[1] == ["passenger1", "0", "0", "1", "51", "0", "51", "0", "51", "51", "0", "0"]
-    assert rows[3] == ["passenger3", "2", "10", "20", "1", "29", "49", "19", "20", "39", "0", "0"]
+    assert rows[1] == [
+        "passenger1",
+        "0",
+        "0",
+        "1",
+        "51",
+        "0",
+        "51",
+        "0",
+        "51",
+        "51",
+        "0",
+        "0",
+    ]
+    assert rows[3] == [
+        "passenger3",
+        "2",
+        "10",
+        "20",
+        "1",
+        "29",
+        "49",
+        "19",
+        "20",
+        "39",
+        "0",
+        "0",
+    ]
 
 
 def test_passengers_log_leaves_times_blank_for_the_undelivered(tmp_path):
@@ -137,5 +188,13 @@ def test_passengers_log_leaves_times_blank_for_the_undelivered(tmp_path):
     result = run_simulation(SAMPLE, config(max_ticks=11))  # nobody delivered yet
     write_passengers_csv(result.passengers, path)
     rows = list(csv.reader(path.open()))
-    assert rows[1][:7] == ["passenger1", "0", "0", "1", "51", "0", ""]  # boarded, not dropped
+    assert rows[1][:7] == [
+        "passenger1",
+        "0",
+        "0",
+        "1",
+        "51",
+        "0",
+        "",
+    ]  # boarded, not dropped
     assert rows[3][5:10] == ["", "", "", "", ""]  # passenger3 not even picked up

@@ -8,7 +8,7 @@ and assigned floors only.
     caller but the other way):                 car -> end of its sweep -> source
 
 The end of the sweep is the farthest assigned floor ahead of the car, where
-LOOK turns around. Ties go to the lowest index.
+LOOK turns around. Ties rotate through the cars (`RotatingTies`).
 
 Unlike ETD it ignores stop time, load and capacity, and the delay a new
 passenger causes everyone else in the car. It is the middle comparison: how
@@ -17,17 +17,18 @@ far position and direction alone get, without predicting routes.
 
 from collections.abc import Sequence
 
+from elevator_sim.dispatch.base import RotatingTies
 from elevator_sim.models import Direction, ElevatorRequest, ElevatorView
 
 
 class NearestCarDispatcher:
+    def __init__(self) -> None:
+        self._ties = RotatingTies()
+
     def assign(
         self, request: ElevatorRequest, elevators: Sequence[ElevatorView], t: int
     ) -> int:
-        return min(
-            range(len(elevators)),
-            key=lambda i: (self.distance(elevators[i], request), i),
-        )
+        return self._ties.pick([self.distance(e, request) for e in elevators])
 
     @staticmethod
     def distance(car: ElevatorView, request: ElevatorRequest) -> int:

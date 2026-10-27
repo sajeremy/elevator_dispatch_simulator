@@ -1,8 +1,8 @@
-from elevator_sim.config import DispatchStrategy, SimulationConfig
+from elevator_sim.config import DispatchStrategy
 from elevator_sim.dispatch.nearest_car import NearestCarDispatcher
 from elevator_sim.models import Direction, ElevatorRequest, ElevatorView
 from elevator_sim.simulation import run_simulation
-from tests.helpers import SAMPLE
+from tests.helpers import SAMPLE, SAMPLE_BUILDING
 
 UP, DOWN, IDLE = Direction.UP, Direction.DOWN, Direction.IDLE
 
@@ -27,9 +27,15 @@ def assign(cars, req) -> int:
     return NearestCarDispatcher().assign(req, cars, t=0)
 
 
-def test_nearest_idle_car_wins_ties_to_lowest_index():
+def test_nearest_idle_car_wins():
     assert assign([car(0, 1), car(1, 30)], request(28, 2)) == 1
-    assert assign([car(0, 5), car(1, 5)], request(10, 2)) == 0
+
+
+def test_ties_rotate_through_the_cars():
+    cars = [car(0, 5), car(1, 5)]
+    dispatcher = NearestCarDispatcher()
+    picks = [dispatcher.assign(request(10, 2), cars, t=0) for _ in range(3)]
+    assert picks == [0, 1, 0]
 
 
 def test_car_just_past_the_caller_counts_its_whole_sweep():
@@ -61,9 +67,12 @@ def test_caller_beyond_the_sweep_is_the_new_turnaround():
 
 def test_sample_input():
     # p1 and p2 arrive together with every car idle at the lobby: distance 0
-    # for all, so both go to e0 (ETD splits them). At t=10, p3 at floor 20
-    # wants down; e0 is at 11 heading up to 51 (40 + 31 floors), idle e1 is 19.
-    config = SimulationConfig(dispatch=DispatchStrategy.NEAREST_CAR)
+    # for all, so the tie rotates: e0, then e1. At t=10, p3 at floor 20 wants
+    # down; e0 and e1 are at 11 heading up (40 + 31 floors), idle e2 and e3
+    # are 19 away, and the tie rotates on to e2.
+    config = SAMPLE_BUILDING.model_copy(
+        update={"dispatch": DispatchStrategy.NEAREST_CAR}
+    )
     result = run_simulation(SAMPLE, config)
-    assert [p.elevator for p in result.passengers] == [0, 0, 1]
+    assert [p.elevator for p in result.passengers] == [0, 1, 2]
     assert result.completed

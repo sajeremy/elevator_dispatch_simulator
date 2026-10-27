@@ -12,22 +12,26 @@ class DispatchStrategy(StrEnum):
 
 
 class SimulationConfig(BaseModel):
-    """Floors are 1-indexed: floor 1 is the lobby."""
+    """Floors are 1-indexed: floor 1 is the lobby.
+
+    The defaults are the office-day building (40 floors, 8 cars, capacity
+    16), which the CLI uses as its defaults too.
+    """
 
     model_config = ConfigDict(frozen=True)
 
     num_floors: int = Field(
-        default=60,
+        default=40,
         ge=2,  # a valid request needs two distinct floors
         description="Number of floors; floors are numbered 1..num_floors.",
     )
     num_elevators: int = Field(
-        default=4,
+        default=8,
         ge=1,
         description="Number of elevators in the building.",
     )
     capacity: int = Field(
-        default=12,
+        default=16,
         ge=1,
         description="Maximum number of passengers per elevator.",
     )
@@ -42,7 +46,7 @@ class SimulationConfig(BaseModel):
         description="Ticks an elevator spends at a stop (doors, boarding, alighting).",
     )
     dispatch: DispatchStrategy = Field(
-        default=DispatchStrategy.ROUND_ROBIN,
+        default=DispatchStrategy.ETD,
         description="Strategy used to assign each request to an elevator.",
     )
     max_ticks: int = Field(

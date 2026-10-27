@@ -14,6 +14,14 @@ dev = [
     "pytest>=9.1.1",
     "ruff>=0.17.2",
 ]
+viz = [
+    "matplotlib>=3.10",
+]
+
+[tool.uv]
+# Charts need matplotlib; it is installed by default so `run`, `compare` and
+# `benchmark` write theirs after a plain `uv sync`.
+default-groups = ["dev", "viz"]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]

@@ -6,27 +6,28 @@ from elevator_sim.benchmarks import (
     MAX_PASSENGERS,
     TinyScenario,
     format_suite,
-    gap_closed,
     offline_optimum,
+    ratio,
+    ratios,
     run_suite,
 )
 from elevator_sim.config import DispatchStrategy, SimulationConfig
 from elevator_sim.dispatch.fixed import FixedDispatcher
 from elevator_sim.simulation import run_simulation
 from elevator_sim.workloads import random_trips
+from tests.helpers import row
 
 
-def brute_force(requests, config):
-    """Every assignment simulated in full: (least total, least max wait)."""
-    best_total = best_wait = float("inf")
+def brute_force(requests, config) -> int:
+    """Every assignment simulated in full: the least sum of total time."""
+    best = float("inf")
     for cars in itertools.product(range(config.num_elevators), repeat=len(requests)):
         assignment = {r.passenger_id: c for r, c in zip(requests, cars, strict=True)}
         result = run_simulation(
             requests, config, dispatcher=FixedDispatcher(assignment)
         )
-        best_total = min(best_total, sum(p.total for p in result.passengers))
-        best_wait = min(best_wait, max(p.wait for p in result.passengers))
-    return best_total, best_wait
+        best = min(best, sum(p.total for p in result.passengers))
+    return best
 
 
 @pytest.mark.parametrize("seed", range(3))
@@ -34,18 +35,14 @@ def brute_force(requests, config):
 def test_optimum_matches_brute_force(seed, capacity):
     requests = random_trips(6, 12, 10, seed)
     config = SimulationConfig(num_floors=12, num_elevators=3, capacity=capacity)
-    optimum = offline_optimum(requests, config)
-    assert (optimum.total, optimum.max_wait) == brute_force(requests, config)
+    assert offline_optimum(requests, config).total == brute_force(requests, config)
 
 
 def test_optimal_assignment_replays_to_the_optimal_total():
     requests = random_trips(8, 15, 20, seed=5)
     config = SimulationConfig(num_floors=15, num_elevators=2)
     optimum = offline_optimum(requests, config)
-    replay = run_simulation(
-        requests, config, dispatcher=FixedDispatcher(optimum.assignment)
-    )
-    assert sum(p.total for p in replay.passengers) == optimum.total
+    assert sum(p.total for p in optimum.result.passengers) == optimum.total
 
 
 def test_more_cars_than_passengers():
@@ -62,15 +59,24 @@ def test_rejects_workloads_too_large_to_solve():
         offline_optimum(requests, SimulationConfig(num_floors=30))
 
 
-def test_suite_bounds_and_summary():
+def test_suite_bounds_summary_and_ratios():
     scenario = TinyScenario("test", passengers=6, num_floors=12, duration=10)
     cases = run_suite(scenario, range(4), parallel=False)  # run_case checks the bounds
-    for case in cases:
-        assert case.level1 <= case.optimum.total
-        if (g := gap_closed(case, DispatchStrategy.ROUND_ROBIN)) is not None:
-            assert g == 0
+    for c in cases:
+        assert c.optimum_metrics.total_time_sum == c.optimum
+        assert all(c.optimum <= m.total_time_sum for m in c.metrics.values())
     text = format_suite(scenario, cases)
-    assert "total / optimum, mean" in text and "4 seeds" in text
+    lines = text.splitlines()
+    assert lines[0] == "test; 12 floors, 3 cars, capacity 12; mean of 4 seeds"
+    assert lines[2].split() == ["round_robin", "nearest_car", "etd", "optimum"]
+    assert "  total / optimum, mean " in text and "  total / optimum, worst " in text
+    assert (
+        row(text, "total / optimum, worst").split()[-1] == "1.00"
+    )  # the optimum column
+    assert "gap closed" not in text and "private-car" not in text
+    r = ratios(cases)
+    assert set(r) == {s.value for s in DispatchStrategy}
+    assert all(1.0 <= mean <= worst for mean, worst in r.values())
 
 
 def test_etd_stays_close_to_the_offline_optimum():
@@ -80,7 +86,7 @@ def test_etd_stays_close_to_the_offline_optimum():
     cases = run_suite(TinyScenario("burst", duration=15), range(20))
 
     def mean_ratio(s):
-        return sum(c.totals[s] / c.optimum.total for c in cases) / len(cases)
+        return sum(ratio(c, s) for c in cases) / len(cases)
 
     assert mean_ratio(DispatchStrategy.ETD) < 1.12
     assert mean_ratio(DispatchStrategy.ETD) < mean_ratio(DispatchStrategy.NEAREST_CAR)

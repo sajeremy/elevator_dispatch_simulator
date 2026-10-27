@@ -7,15 +7,18 @@ passenger's wait and ride, plus the delay to everyone already assigned.
 
 For every car, predict its LOOK route twice from the current tick: once with
 its current passengers and once with the new one added. The car's cost is
-the time its passengers still need:
+the time still ahead until each of its passengers reaches their destination,
+riders and waiting passengers alike:
 
-    waiting passenger:  wait_weight * (pickup - now) + (dropoff - pickup)
-    rider on board:     dropoff - now
+    cost = sum over passengers of (drop-off tick - now)
 
-The new request goes to the car with the smallest increase (with - without),
-ties to the lowest index. The increase counts the new passenger's own wait and
-travel plus the delay every existing passenger of that car takes on (extra
-stops, a later turnaround, a full car).
+The new request goes to the car with the smallest increase (with - without);
+ties rotate through the cars. The increase counts the new passenger's own wait
+and travel plus the delay every existing passenger of that car takes on (extra
+stops, a later turnaround, a full car). Minimizing it is minimizing the sum of
+total time, the headline objective: a passenger's total is their drop-off tick
+minus their request tick, and the request tick is fixed, so it cancels out of
+the difference between the two routes.
 
 Predictions run `physics.step` and the movement policy on a private copy of
 the car, so they follow the simulation's rules exactly. They are exact unless
@@ -27,6 +30,7 @@ import sys
 from collections.abc import Sequence
 from dataclasses import dataclass
 
+from elevator_sim.dispatch.base import RotatingTies
 from elevator_sim.models import (
     Elevator,
     ElevatorRequest,
@@ -66,34 +70,29 @@ class EtdDispatcher:
         stop_duration: int,
         num_floors: int,
         horizon: int,
-        wait_weight: float = 1.0,
     ) -> None:
-        """`horizon` caps how many ticks a prediction may run (the run's max_ticks).
-        `wait_weight` > 1 values a tick of waiting above a tick of riding."""
+        """`horizon` caps how many ticks a prediction may run (the run's max_ticks)."""
         self.movement = movement
         self.stop_duration = stop_duration
         self.num_floors = num_floors
         self.horizon = horizon
-        self.wait_weight = wait_weight
+        self._ties = RotatingTies()
 
-    def assign(self, request: ElevatorRequest, elevators: Sequence[ElevatorView], t: int) -> int:
+    def assign(
+        self, request: ElevatorRequest, elevators: Sequence[ElevatorView], t: int
+    ) -> int:
         new = pickup_view(request)
-        return min(
-            range(len(elevators)),
-            key=lambda i: (self.marginal_cost(elevators[i], new, t), i),
-        )
+        return self._ties.pick([self.marginal_cost(e, new, t) for e in elevators])
 
-    def marginal_cost(self, car: ElevatorView, new: PickupView, t: int) -> float:
+    def marginal_cost(self, car: ElevatorView, new: PickupView, t: int) -> int:
         return self.route_cost(car, t, extra=new) - self.route_cost(car, t)
 
-    def route_cost(self, car: ElevatorView, t: int, extra: PickupView | None = None) -> float:
-        cost = 0.0
-        for trip in self.predict(car, t, extra):
-            if trip.pickup is None:
-                cost += trip.dropoff - t
-            else:
-                cost += self.wait_weight * (trip.pickup - t) + (trip.dropoff - trip.pickup)
-        return cost
+    def route_cost(
+        self, car: ElevatorView, t: int, extra: PickupView | None = None
+    ) -> int:
+        """Ticks from `t` until each passenger of the car (plus `extra`) is
+        delivered, summed over all of them."""
+        return sum(trip.dropoff - t for trip in self.predict(car, t, extra))
 
     def predict(
         self, car: ElevatorView, t: int, extra: PickupView | None = None
@@ -106,8 +105,18 @@ class EtdDispatcher:
         tick = t
         while elevator.riders or elevator.waiting:
             if tick - t >= self.horizon:
-                raise RuntimeError(f"route for elevator {car.index} exceeds {self.horizon} ticks")
-            action = None if elevator.stop_ticks_left > 0 else self.movement.next_action(elevator.view())
+                # The horizon is the run's max_ticks: a cap too small for a
+                # route is a config-versus-input conflict, like a floor
+                # outside the building.
+                raise ValueError(
+                    f"route for elevator {car.index} exceeds {self.horizon} ticks "
+                    "(max_ticks is ETD's prediction horizon; raise it)"
+                )
+            action = (
+                None
+                if elevator.stop_ticks_left > 0
+                else self.movement.next_action(elevator.view())
+            )
             step(
                 elevator,
                 action,
@@ -118,7 +127,8 @@ class EtdDispatcher:
             tick += 1
 
         return [PredictedTrip(None, None, p.dropoff_time) for p in riders] + [
-            PredictedTrip(p.arrival_order, p.pickup_time, p.dropoff_time) for p in waiting
+            PredictedTrip(p.arrival_order, p.pickup_time, p.dropoff_time)
+            for p in waiting
         ]
 
 

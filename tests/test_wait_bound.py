@@ -19,12 +19,16 @@ from elevator_sim.models import ElevatorRequest
 from elevator_sim.simulation import run_simulation
 
 
-def random_requests(seed: int, n: int, floors: int, horizon: int) -> list[ElevatorRequest]:
+def random_requests(
+    seed: int, n: int, floors: int, horizon: int
+) -> list[ElevatorRequest]:
     rng = random.Random(seed)
     out = []
     for i in range(n):
         source, dest = rng.sample(range(1, floors + 1), 2)
-        out.append(ElevatorRequest.from_tuple((rng.randrange(horizon), f"p{i}", source, dest)))
+        out.append(
+            ElevatorRequest.from_tuple((rng.randrange(horizon), f"p{i}", source, dest))
+        )
     return out
 
 
@@ -44,8 +48,12 @@ def test_travel_while_waiting_is_bounded(seed, stop_duration):
     rows = result.positions.rows
     for p in result.passengers:
         car = 1 + p.elevator
-        before = [config.start_floor] + [row[car] for row in rows]  # before[k] = floor before tick k
-        moves = sum(before[k + 1] != before[k] for k in range(p.request.time, p.pickup_time))
+        before = [config.start_floor] + [
+            row[car] for row in rows
+        ]  # before[k] = floor before tick k
+        moves = sum(
+            before[k + 1] != before[k] for k in range(p.request.time, p.pickup_time)
+        )
         assert moves <= 2 * (floors - 1), p.request.passenger_id
 
 
@@ -53,9 +61,7 @@ def floors_travelled(result, passenger, start: int) -> int:
     """Floors the passenger's car moves between tick `start` and the pickup."""
     car = 1 + passenger.elevator
     before = [result.config.start_floor] + [row[car] for row in result.positions.rows]
-    return sum(
-        before[k + 1] != before[k] for k in range(start, passenger.pickup_time)
-    )
+    return sum(before[k + 1] != before[k] for k in range(start, passenger.pickup_time))
 
 
 @pytest.mark.parametrize("seed", range(10))
@@ -71,9 +77,7 @@ def test_oldest_waiting_passenger_boards_within_one_sweep(seed, capacity):
         older = [q for q in same_car if q.arrival_order < p.arrival_order]
         # The tick from which p is the oldest passenger still waiting for its car.
         oldest_from = max([p.request.time, *(q.pickup_time for q in older)])
-        aboard = sum(
-            q.pickup_time <= oldest_from < q.dropoff_time for q in same_car
-        )
+        aboard = sum(q.pickup_time <= oldest_from < q.dropoff_time for q in same_car)
         legs = 2 if aboard < capacity else 3
         assert floors_travelled(result, p, oldest_from) <= legs * (floors - 1), (
             p.request.passenger_id

@@ -35,6 +35,7 @@ class ElevatorStats:
     full_ticks: int = 0  # ticks ending with every seat taken
     empty_moving_ticks: int = 0  # moving with nobody aboard (deadheading)
     left_behind: int = 0  # departures that left a same-direction pickup behind
+    wrong_way_floors: int = 0  # rider-floors travelled away from a destination
 
     @property
     def busy_ticks(self) -> int:
@@ -55,6 +56,7 @@ class ElevatorStats:
         if outcome.load == self.capacity:
             self.full_ticks += 1
         self.left_behind += len(outcome.left_behind)
+        self.wrong_way_floors += outcome.wrong_way
 
 
 @dataclass(frozen=True, slots=True)
@@ -96,7 +98,9 @@ def run_simulation(
             index = dispatcher.assign(request, views, t)
             if not 0 <= index < len(elevators):
                 raise ValueError(f"dispatcher returned invalid elevator {index}")
-            passenger = Passenger(request, elevator=index, arrival_order=len(passengers))
+            passenger = Passenger(
+                request, elevator=index, arrival_order=len(passengers)
+            )
             passengers.append(passenger)
             elevators[index].waiting.append(passenger)
             undelivered += 1
@@ -131,4 +135,3 @@ def run_simulation(
         ticks=t,
         completed=source.exhausted and undelivered == 0,
     )
-

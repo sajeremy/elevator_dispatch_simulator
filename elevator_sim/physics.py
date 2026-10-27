@@ -35,6 +35,9 @@ class TickOutcome:
     # Waiting passengers at the floor the car just left, going its way: they
     # saw their car and could not get on (full, or seats kept for older pickups).
     left_behind: list[Passenger] = field(default_factory=list)
+    # Riders carried one floor away from their destination this tick. LOOK
+    # never does this; the count is the direction constraint, checked live.
+    wrong_way: int = 0
 
 
 def step(
@@ -72,10 +75,17 @@ def step(
             ]
             for p in left_behind:
                 p.left_behind += 1
+            wrong_way = sum(
+                (p.request.destination_floor - elevator.floor) * action.direction < 0
+                for p in elevator.riders
+            )
             elevator.floor = floor
             elevator.direction = action.direction
             return TickOutcome(
-                Activity.MOVING, load=len(elevator.riders), left_behind=left_behind
+                Activity.MOVING,
+                load=len(elevator.riders),
+                left_behind=left_behind,
+                wrong_way=wrong_way,
             )
         case ActionKind.IDLE:
             elevator.direction = Direction.IDLE
@@ -121,7 +131,9 @@ def _exchange(elevator: Elevator, t: int) -> TickOutcome:
     alighting = [p for p in elevator.riders if p.request.destination_floor == floor]
     for p in alighting:
         p.dropoff_time = t
-    elevator.riders = [p for p in elevator.riders if p.request.destination_floor != floor]
+    elevator.riders = [
+        p for p in elevator.riders if p.request.destination_floor != floor
+    ]
 
     room = elevator.capacity - len(elevator.riders)
     orders = {
@@ -137,5 +149,8 @@ def _exchange(elevator: Elevator, t: int) -> TickOutcome:
         elevator.waiting.remove(p)
         elevator.riders.append(p)
     return TickOutcome(
-        Activity.STOPPED, load=len(elevator.riders), alighted=alighting, boarded=boarders
+        Activity.STOPPED,
+        load=len(elevator.riders),
+        alighted=alighting,
+        boarded=boarders,
     )
