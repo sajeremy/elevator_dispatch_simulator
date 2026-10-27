@@ -57,8 +57,8 @@ def test_no_requests_records_t0_only():
 
 
 def test_max_ticks_stops_the_run():
-    result = run_simulation(SAMPLE, config(max_ticks=10))
-    assert result.ticks == 10
+    result = run_simulation(SAMPLE, config(max_ticks=11))  # last request at t=10
+    assert result.ticks == 11
     assert not result.completed
 
 
@@ -86,6 +86,13 @@ def test_opposite_direction_waits_for_the_return_sweep():
     # Back down from 10 to 5 (t=11..15), board at t=16.
     assert p["b"].pickup_time == 16
     assert p["b"].dropoff_time == 16 + 3 + 1
+
+
+def test_input_that_does_not_fit_the_config_is_rejected():
+    with pytest.raises(ValueError, match="num_floors must be at least 51"):
+        run_simulation(SAMPLE, config(num_floors=40))
+    with pytest.raises(ValueError, match="max_ticks must be greater than 10"):
+        run_simulation(SAMPLE, config(max_ticks=10))
 
 
 def test_invalid_dispatcher_choice_is_rejected():

@@ -68,7 +68,7 @@ def run_simulation(
     dispatcher = dispatcher or registry.make_dispatcher(config)
     movement = movement or registry.make_movement()
 
-    source = RequestSource(requests, config.num_floors)
+    source = RequestSource(requests, config.num_floors, max_ticks=config.max_ticks)
     elevators = [
         Elevator(index=i, floor=config.start_floor, capacity=config.capacity)
         for i in range(config.num_elevators)

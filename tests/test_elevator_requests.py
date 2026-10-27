@@ -55,6 +55,19 @@ def test_rejects_floors_outside_building():
         RequestSource([req(0, "a", 1, 11)], 10)
 
 
+def test_floor_error_reports_every_offender_and_the_floors_needed():
+    reqs = [req(0, "a", 1, 11), req(1, "b", 2, 3), req(2, "c", 14, 1)]
+    with pytest.raises(ValueError, match=r"2 request\(s\).*first 'a', highest floor 14.*at least 14"):
+        RequestSource(reqs, 10)
+
+
+def test_rejects_requests_arriving_after_max_ticks():
+    reqs = [req(0, "a", 1, 2), req(5, "b", 1, 2)]
+    with pytest.raises(ValueError, match="max_ticks must be greater than 5"):
+        RequestSource(reqs, 10, max_ticks=5)
+    RequestSource(reqs, 10, max_ticks=6)  # the last arrival can still be ingested
+
+
 def test_rejects_zero_length_trip():
     with pytest.raises(ValidationError, match="source and destination"):
         req(0, "a", 3, 3)

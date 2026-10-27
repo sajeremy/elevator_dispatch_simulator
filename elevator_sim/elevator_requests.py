@@ -38,25 +38,54 @@ def load_requests_csv(path: str | Path) -> list[ElevatorRequest]:
     return requests
 
 
+def _check_fits_config(
+    requests: list[ElevatorRequest], num_floors: int, max_ticks: int | None
+) -> None:
+    """Reject input the configured run cannot serve. Reports every offending
+    request at once, with the setting that would fit."""
+    outside = [
+        r
+        for r in requests
+        if not (1 <= r.source_floor <= num_floors and 1 <= r.destination_floor <= num_floors)
+    ]
+    if outside:
+        highest = max(max(r.source_floor, r.destination_floor) for r in outside)
+        raise ValueError(
+            f"{len(outside)} request(s) use floors outside 1..{num_floors} "
+            f"(first {outside[0].passenger_id!r}, highest floor {highest}); "
+            f"num_floors must be at least {highest}"
+        )
+    if max_ticks is not None and requests and requests[-1].time >= max_ticks:
+        late = sum(r.time >= max_ticks for r in requests)
+        raise ValueError(
+            f"{late} request(s) arrive at or after max_ticks={max_ticks} "
+            f"(last at t={requests[-1].time}); max_ticks must be greater than "
+            f"{requests[-1].time}"
+        )
+
+
 class RequestSource:
     """Releases requests in time order, never ahead of the current tick.
 
-    Input is validated against the building and stably sorted by time, so
-    requests sharing a tick keep their input order.
+    Input is validated against the config (floors, and arrival times within
+    max_ticks when given) and stably sorted by time, so requests sharing a
+    tick keep their input order.
     """
 
-    def __init__(self, requests: Iterable[ElevatorRequest], num_floors: int) -> None:
+    def __init__(
+        self,
+        requests: Iterable[ElevatorRequest],
+        num_floors: int,
+        *,
+        max_ticks: int | None = None,
+    ) -> None:
         pending = sorted(requests, key=lambda r: r.time)  # stable
         seen: set[str] = set()
         for r in pending:
             if r.passenger_id in seen:
                 raise ValueError(f"duplicate passenger id {r.passenger_id!r}")
             seen.add(r.passenger_id)
-            for floor in (r.source_floor, r.destination_floor):
-                if not 1 <= floor <= num_floors:
-                    raise ValueError(
-                        f"request {r.passenger_id!r}: floor {floor} outside 1..{num_floors}"
-                    )
+        _check_fits_config(pending, num_floors, max_ticks)
         self._pending = pending
         self._next = 0
         self._last_t: int | None = None
