@@ -41,6 +41,11 @@ def step(
         case ActionKind.STOP:
             elevator.direction = action.direction
             elevator.stop_ticks_left = stop_duration - 1
+            # A new stop is an intermediate one for every rider not getting off
+            # here; passengers boarding now are not riders yet.
+            for p in elevator.riders:
+                if p.request.destination_floor != elevator.floor:
+                    p.stops += 1
             return _exchange(elevator, t)
         case ActionKind.MOVE:
             floor = elevator.floor + action.direction

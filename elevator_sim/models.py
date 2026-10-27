@@ -66,6 +66,7 @@ class Passenger:
     arrival_order: int  # position in the time-sorted input; breaks same-tick ties
     pickup_time: int | None = None
     dropoff_time: int | None = None
+    stops: int = 0  # intermediate stops ridden: not counting boarding or alighting
 
     @property
     def delivered(self) -> bool:
@@ -84,10 +85,6 @@ class Passenger:
     @property
     def total(self) -> int:
         return self.wait + self.travel
-
-    @property
-    def stretch(self) -> float:
-        return self.total / self.request.distance
 
 
 @dataclass(frozen=True, slots=True)
