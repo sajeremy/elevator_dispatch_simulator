@@ -1,7 +1,7 @@
 from elevator_sim.config import DispatchStrategy, SimulationConfig
-from elevator_sim.experiments import compare
+from elevator_sim.experiments import compare, compare_workloads
 from elevator_sim.metrics import compute_metrics
-from elevator_sim.report import format_comparison
+from elevator_sim.report import format_comparison, format_grid
 from elevator_sim.simulation import run_simulation
 from tests.helpers import SAMPLE, requests
 
@@ -40,3 +40,15 @@ def test_comparison_stars_the_best_value_and_skips_ties():
     assert etd.wait.max < rr.wait.max
     assert lines["wait max"].rstrip().endswith("*")  # ETD, the last column
     assert "Versus round_robin" in text
+
+
+def test_compare_workloads_runs_every_pair_and_formats_a_grid():
+    workloads = {"one": SAMPLE, "two": requests((0, "a", 1, 10), (5, "b", 9, 1))}
+    grid = compare_workloads(workloads, SimulationConfig(), parallel=False)
+    assert list(grid) == ["one", "two"]
+    for runs in grid.values():
+        assert [r.strategy for r in runs] == list(DispatchStrategy)
+    text = format_grid(
+        {w: [(r.strategy.value, r.metrics) for r in runs] for w, runs in grid.items()}
+    )
+    assert "one (3 passengers)" in text and "two (2 passengers)" in text
