@@ -5,7 +5,9 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class DispatchStrategy(StrEnum):
+    # Simplest to most informed, which is also the comparison table's column order.
     ROUND_ROBIN = "round_robin"
+    NEAREST_CAR = "nearest_car"
     ETD = "etd"
 
 

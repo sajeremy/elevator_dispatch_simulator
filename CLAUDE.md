@@ -61,6 +61,7 @@ Then `t += 1`. Stop when the source is exhausted and everyone is delivered, or `
 ```python
 class DispatchStrategy(StrEnum):
     ROUND_ROBIN = "round_robin"
+    NEAREST_CAR = "nearest_car"
     ETD = "etd"  # each member is added together with its registry entry
 
 class SimulationConfig(BaseModel):  # frozen
@@ -81,7 +82,7 @@ Requires Python 3.14+ (matches `pyproject.toml` and `.python-version`).
 
 1. Core loop + round robin + LOOK, end to end on the sample input. Correct positions log and stats.
 2. ETD (estimated time to destination) dispatcher (headline): pick the elevator with the smallest marginal increase in total wait + travel for its passengers, by simulating that car's LOOK route with and without the new passenger. Optional knobs: weight wait over travel; fairness penalty on max wait.
-3. Direction-aware nearest car (middle comparison).
+3. Direction-aware nearest car (middle comparison): fewest floors to reach the caller from each car's position, direction and sweep end; ignores stops, load and delay to others.
 4. Zone-based, if time allows; otherwise listed as future work.
 Movement stays LOOK for every dispatcher comparison. SCAN is comparison-only.
 

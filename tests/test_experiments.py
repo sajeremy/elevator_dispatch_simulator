@@ -32,7 +32,11 @@ def test_comparison_stars_the_best_value_and_skips_ties():
     text = format_comparison([(r.strategy.value, r.metrics) for r in runs])
     lines = {line.split("  ")[0]: line for line in text.splitlines()}
     assert "*" not in lines["delivered"]  # tie
-    rr, etd = (r.metrics for r in runs)
+    by_strategy = {r.strategy: r.metrics for r in runs}
+    rr, etd = (
+        by_strategy[DispatchStrategy.ROUND_ROBIN],
+        by_strategy[DispatchStrategy.ETD],
+    )
     assert etd.wait.max < rr.wait.max
     assert lines["wait max"].rstrip().endswith("*")  # ETD, the last column
     assert "Versus round_robin" in text
